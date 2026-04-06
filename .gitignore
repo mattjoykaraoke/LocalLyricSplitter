@@ -12,6 +12,7 @@ build/
 dist/
 *.spec
 *.bat
+*.iss
 
 # --- Local User Data ---
 # If you want to keep your personal trip-ups and false positives
