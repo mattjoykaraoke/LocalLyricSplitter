@@ -1,0 +1,29 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# --- PyInstaller / Packaging ---
+# These are the heavy folders created during the build process
+build/
+dist/
+*.spec
+*.bat
+
+# --- Local User Data ---
+# If you want to keep your personal trip-ups and false positives
+# separate from the repository, uncomment the line below.
+# config.json
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+
+# --- Assets ---
+# If you have raw high-res photoshop/illustrator files in your
+# assets folder that shouldn't be on GitHub, ignore them by extension:
+# assets/*.psd
+# assets/*.ai
