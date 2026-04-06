@@ -18,7 +18,7 @@ ________________________________________________________________________________
 
 ### 📸 Main App Screenshot
 
-![Local Lyric Splitter Screenshot](assets/Screenshot1.png)
+![Local Lyric Splitter Screenshot](assets/screenshot1.png)
 
 __________________________________________________________________________________________
 
