@@ -5,7 +5,7 @@ import shutil
 import sys
 import webbrowser
 from pathlib import Path
-from tkinter import Menu
+from tkinter import Menu, filedialog, messagebox
 
 import customtkinter as ctk
 import pyphen
@@ -18,22 +18,18 @@ def get_config_path():
     1. If NOT compiled (Dev mode): Use config.json in the script folder.
     2. If compiled (Installed mode): Use %APPDATA% ONLY.
     """
-    # 1. Detect if we are running as a script or an EXE
     is_frozen = getattr(sys, "frozen", False)
 
     if not is_frozen:
-        # DEVELOPMENT MODE: Use the file in your project root
         local_config = Path(__file__).parent / "config.json"
         return str(local_config)
 
-    # 2. INSTALLED MODE: Define the persistent folder in %APPDATA%
     app_data_dir = Path(os.getenv("APPDATA")) / "LocalLyricSplitter"
     config_file = app_data_dir / "config.json"
 
     if not app_data_dir.exists():
         app_data_dir.mkdir(parents=True)
 
-    # 3. If no config exists in AppData, copy the one bundled INSIDE the EXE
     if not config_file.exists():
         bundled_config = Path(sys._MEIPASS) / "config.json"
         if bundled_config.exists():
@@ -41,9 +37,8 @@ def get_config_path():
                 shutil.copy(bundled_config, config_file)
                 return str(config_file)
             except Exception:
-                pass  # Fallback to default if copy fails
+                pass
 
-        # Emergency Fallback
         default_config = {"trip_up_words": {"into": "in/to"}, "false_positives": []}
         with open(config_file, "w") as f:
             json.dump(default_config, f, indent=4)
@@ -60,7 +55,6 @@ class AboutDialog(ctk.CTkToplevel):
         self.attributes("-topmost", True)
         self.grid_columnconfigure(0, weight=1)
 
-        # Use the app_path defined in the main class to find assets
         display_size = (300, 200)
         assets_path = os.path.join(parent.app_path, "assets")
         image_path = os.path.join(assets_path, "about_logo.png")
@@ -132,7 +126,6 @@ class WordInputDialog(ctk.CTkToplevel):
         self.result = None
 
         ctk.CTkLabel(self, text=text, font=("Arial", 14)).pack(pady=(25, 10))
-
         self.entry = ctk.CTkEntry(self, width=300)
         self.entry.pack(pady=10)
         self.entry.insert(0, initial_value)
@@ -147,7 +140,6 @@ class WordInputDialog(ctk.CTkToplevel):
         ctk.CTkButton(
             self.btn_frame, text="Cancel", width=100, command=self.destroy
         ).pack(side="left", padx=10)
-
         self.bind("<Return>", lambda e: self.submit())
 
     def submit(self):
@@ -164,7 +156,7 @@ class ConfigEditor(ctk.CTkToplevel):
         super().__init__(parent)
         self.parent = parent
         self.title("Configuration Editor")
-        self.geometry("600x550")
+        self.geometry("620x600")
         self.attributes("-topmost", True)
         self.grid_columnconfigure((0, 1), weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -182,15 +174,90 @@ class ConfigEditor(ctk.CTkToplevel):
         self.false_pos_list.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         self.load_into_editor()
+
+        # Bottom Button Row
+        self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.btn_frame.grid(row=2, column=0, columnspan=2, pady=20)
+
         ctk.CTkButton(
-            self, text="Save & Apply", command=self.save_and_close, fg_color="#2c5d3f"
-        ).grid(row=2, column=0, columnspan=2, pady=20)
+            self.btn_frame,
+            text="Save & Apply",
+            command=self.save_and_close,
+            fg_color="#2c5d3f",
+            width=130,
+        ).pack(side="left", padx=5)
+        ctk.CTkButton(
+            self.btn_frame,
+            text="Export Library",
+            command=self.export_config,
+            fg_color="#1f538d",
+            width=130,
+        ).pack(side="left", padx=5)
+        ctk.CTkButton(
+            self.btn_frame,
+            text="Import/Merge",
+            command=self.import_config,
+            fg_color="#444",
+            width=130,
+        ).pack(side="left", padx=5)
 
     def load_into_editor(self):
+        self.trip_up_list.delete("1.0", "end")
+        self.false_pos_list.delete("1.0", "end")
         trip_str = "\n".join([f"{k}: {v}" for k, v in self.parent.trip_ups.items()])
         self.trip_up_list.insert("1.0", trip_str)
         false_str = "\n".join(sorted(list(self.parent.false_positives)))
         self.false_pos_list.insert("1.0", false_str)
+
+    def export_config(self):
+        source_path = self.parent.config_path
+        dest_path = filedialog.asksaveasfilename(
+            title="Export Your Lyric Library",
+            initialfile="LLS_My_Library.json",
+            filetypes=[("JSON File", "*.json")],
+            defaultextension=".json",
+        )
+        if dest_path:
+            try:
+                shutil.copy(source_path, dest_path)
+                messagebox.showinfo("Success", f"Library exported to:\n{dest_path}")
+            except Exception as e:
+                messagebox.showerror("Export Failed", f"Could not export file: {e}")
+
+    def import_config(self):
+        file_path = filedialog.askopenfilename(
+            title="Select Library to Import", filetypes=[("JSON File", "*.json")]
+        )
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "r") as f:
+                new_data = json.load(f)
+
+            # Merge logic: Add new, don't overwrite user's custom existing ones
+            new_trips = new_data.get("trip_up_words", {})
+            new_false = new_data.get("false_positives", [])
+
+            merged_count = 0
+            for k, v in new_trips.items():
+                if k.lower() not in self.parent.trip_ups:
+                    self.parent.trip_ups[k.lower()] = v.lower()
+                    merged_count += 1
+
+            for fp in new_false:
+                if fp.lower() not in self.parent.false_positives:
+                    self.parent.false_positives.add(fp.lower())
+                    merged_count += 1
+
+            self.parent.save_config_to_disk()
+            self.load_into_editor()  # Refresh view
+            messagebox.showinfo(
+                "Import Success",
+                f"Merged {merged_count} new entries into your library!",
+            )
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to parse file: {e}")
 
     def save_and_close(self):
         new_trip_ups = {}
@@ -215,17 +282,13 @@ class StreamlinedLyricApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Identify where the app is running from (frozen exe vs script)
         if getattr(sys, "frozen", False):
-            self.app_path = sys._MEIPASS  # For internal assets
-            self.exe_dir = os.path.dirname(
-                sys.executable
-            )  # For external context if needed
+            self.app_path = sys._MEIPASS
+            self.exe_dir = os.path.dirname(sys.executable)
         else:
             self.app_path = os.path.dirname(__file__)
             self.exe_dir = self.app_path
 
-        # Use %APPDATA% for the writable config
         self.config_path = get_config_path()
         self.load_config()
 
@@ -241,15 +304,12 @@ class StreamlinedLyricApp(ctk.CTk):
         self.txt.pack(fill="both", expand=True, padx=20, pady=(20, 10))
         self.txt.tag_config("missed", background="#5c4000", foreground="white")
 
-        # --- Context Menu ---
         self.context_menu = Menu(
             self,
             tearoff=0,
             bg="#2b2b2b",
             fg="#e0e0e0",
             font=("Segoe UI", 10),
-            borderwidth=1,
-            relief="flat",
             activebackground="#1f538d",
             activeforeground="white",
         )
@@ -263,8 +323,6 @@ class StreamlinedLyricApp(ctk.CTk):
         self.txt.bind("<KeyPress>", self.take_snapshot)
         self.txt.bind("<KeyRelease>", self.on_key_release)
         self.txt.bind("<Button-3>", self.show_context_menu)
-
-        # --- Keyboard Shortcuts ---
         self.bind("<Control-z>", self.undo)
         self.bind("<Control-Z>", self.undo)
 
