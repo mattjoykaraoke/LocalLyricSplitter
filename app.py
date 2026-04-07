@@ -81,7 +81,7 @@ class AboutDialog(ctk.CTkToplevel):
                 fg_color="#333",
             ).pack(pady=(20, 10))
 
-        about_text = "Vibe Coded in 2026 by Matt Joy.\n\nVersion 1.0.1\nBuilt with CustomTkinter (MIT License)\nSee licenses folder for details."
+        about_text = "Vibe Coded in 2026 by Matt Joy.\n\nVersion 1.0.2\nBuilt with CustomTkinter (MIT License)\nSee licenses folder for details."
         ctk.CTkLabel(self, text=about_text, font=("Arial", 13), justify="center").pack(
             pady=(5, 5)
         )
@@ -510,23 +510,29 @@ class StreamlinedLyricApp(ctk.CTk):
         for p in parts:
             low = p.lower()
 
-            # 1. Check Trip-Up dictionary first
+            # 1. Check Trip-Up dictionary first (Exact matches)
             if low in self.trip_ups:
                 res = self.trip_ups[low]
                 processed.append(res.capitalize() if p[0].isupper() else res)
 
-            # 2. Skip whitespace, already-split words, or punctuation
+            # 2. Skip whitespace, punctuation, or words that already have slashes/underscores
             elif (
                 not p.strip() or not any(c.isalnum() for c in p) or "/" in p or "_" in p
             ):
                 processed.append(p)
 
-            # 3. Handle Hyphenated words (e.g., happy-place -> happy-/place)
+            # 3. Handle Hyphenated words safely (The Fix)
             elif "-" in p:
-                # Add slash after hyphen if not already present
-                hyphen_split = re.sub(r"(-)(?!\/)", r"-/", p)
-                # Still run Pyphen on the resulting pieces to catch syllables
-                processed.append(self.dic.inserted(hyphen_split, hyphen="/"))
+                # Split the compound word by the hyphen
+                sub_words = p.split("-")
+                hyphenated_chunks = []
+
+                for sub in sub_words:
+                    # Run Pyphen ONLY on the clean alphabetic chunks
+                    hyphenated_chunks.append(self.dic.inserted(sub, hyphen="/"))
+
+                # Glue them back together with your preferred KBS hyphen-slash combo
+                processed.append("-/".join(hyphenated_chunks))
 
             # 4. Standard Pyphen Auto-Split
             else:
