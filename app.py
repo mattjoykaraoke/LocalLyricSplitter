@@ -1,13 +1,54 @@
 import json
 import os
 import re
+import shutil
 import sys
 import webbrowser
+from pathlib import Path
 from tkinter import Menu
 
 import customtkinter as ctk
 import pyphen
 from PIL import Image
+
+
+def get_config_path():
+    """
+    Priority logic:
+    1. If NOT compiled (Dev mode): Use config.json in the script folder.
+    2. If compiled (Installed mode): Use %APPDATA% ONLY.
+    """
+    # 1. Detect if we are running as a script or an EXE
+    is_frozen = getattr(sys, "frozen", False)
+
+    if not is_frozen:
+        # DEVELOPMENT MODE: Use the file in your project root
+        local_config = Path(__file__).parent / "config.json"
+        return str(local_config)
+
+    # 2. INSTALLED MODE: Define the persistent folder in %APPDATA%
+    app_data_dir = Path(os.getenv("APPDATA")) / "LocalLyricSplitter"
+    config_file = app_data_dir / "config.json"
+
+    if not app_data_dir.exists():
+        app_data_dir.mkdir(parents=True)
+
+    # 3. If no config exists in AppData, copy the one bundled INSIDE the EXE
+    if not config_file.exists():
+        bundled_config = Path(sys._MEIPASS) / "config.json"
+        if bundled_config.exists():
+            try:
+                shutil.copy(bundled_config, config_file)
+                return str(config_file)
+            except Exception:
+                pass  # Fallback to default if copy fails
+
+        # Emergency Fallback
+        default_config = {"trip_up_words": {"into": "in/to"}, "false_positives": []}
+        with open(config_file, "w") as f:
+            json.dump(default_config, f, indent=4)
+
+    return str(config_file)
 
 
 class AboutDialog(ctk.CTkToplevel):
@@ -19,6 +60,7 @@ class AboutDialog(ctk.CTkToplevel):
         self.attributes("-topmost", True)
         self.grid_columnconfigure(0, weight=1)
 
+        # Use the app_path defined in the main class to find assets
         display_size = (300, 200)
         assets_path = os.path.join(parent.app_path, "assets")
         image_path = os.path.join(assets_path, "about_logo.png")
@@ -81,8 +123,6 @@ class AboutDialog(ctk.CTkToplevel):
 
 
 class WordInputDialog(ctk.CTkToplevel):
-    """Custom focused dialog to prevent attribute errors and pre-load words."""
-
     def __init__(self, parent, title, text, initial_value=""):
         super().__init__(parent)
         self.title(title)
@@ -175,13 +215,20 @@ class StreamlinedLyricApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        # Identify where the app is running from (frozen exe vs script)
         if getattr(sys, "frozen", False):
-            self.app_path = os.path.dirname(sys.executable)
+            self.app_path = sys._MEIPASS  # For internal assets
+            self.exe_dir = os.path.dirname(
+                sys.executable
+            )  # For external context if needed
         else:
             self.app_path = os.path.dirname(__file__)
+            self.exe_dir = self.app_path
 
-        self.config_path = os.path.join(self.app_path, "config.json")
+        # Use %APPDATA% for the writable config
+        self.config_path = get_config_path()
         self.load_config()
+
         self.dic = pyphen.Pyphen(lang="en_US")
         self.history = []
         self.pre_keypress_snapshot = ""
@@ -218,7 +265,6 @@ class StreamlinedLyricApp(ctk.CTk):
         self.txt.bind("<Button-3>", self.show_context_menu)
 
         # --- Keyboard Shortcuts ---
-        # We bind to the main window (self) so it works even if the textbox isn't focused
         self.bind("<Control-z>", self.undo)
         self.bind("<Control-Z>", self.undo)
 
@@ -278,7 +324,6 @@ class StreamlinedLyricApp(ctk.CTk):
                         sorted(config.get("trip_up_words", {}).items())
                     )
                     self.false_positives = set(config.get("false_positives", []))
-                    self.save_config_to_disk()
                 except json.JSONDecodeError:
                     self.trip_ups, self.false_positives = {}, set()
         else:
@@ -301,7 +346,6 @@ class StreamlinedLyricApp(ctk.CTk):
         cursor_pos = self.txt.index("insert")
         line_text = self.txt.get(f"{cursor_pos} linestart", f"{cursor_pos} lineend")
         col = int(cursor_pos.split(".")[1])
-        # Added ' to the allowed characters
         match = next(
             (
                 m
@@ -336,7 +380,6 @@ class StreamlinedLyricApp(ctk.CTk):
             self.trip_ups[clean_key] = res.strip().lower()
             self.save_config_to_disk()
             self.refresh_highlights()
-
             self.auto_split()
 
     def open_editor(self):
@@ -387,42 +430,24 @@ class StreamlinedLyricApp(ctk.CTk):
         self.txt.tag_remove("missed", "1.0", "end")
         if not self.highlight_var.get():
             return
-
         content = self.txt.get("1.0", "end-1c")
-
-        # Updated Regex:
-        # 1. (?<![/_]) -> Don't highlight if preceded by a split marker
-        # 2. \b[\w']+  -> Match words including apostrophes
-        # 3. (?![/_])  -> Don't highlight if followed by a split marker
         for m in re.finditer(r"(?<![/_])\b[\w']+\b(?![/_])", content):
-            word = m.group()
-            low = word.lower()
-
-            # 1. Skip if it's too short and not a known trip-up
+            word, low = m.group(), m.group().lower()
             if len(word) <= 5 and low not in self.trip_ups:
                 continue
-
-            # 2. Skip if it's a known false positive
             if low in self.false_positives:
                 continue
-
-            # 3. Highlight it!
-            start_idx = f"1.0 + {m.start()} chars"
-            end_idx = f"1.0 + {m.end()} chars"
+            start_idx, end_idx = f"1.0 + {m.start()} chars", f"1.0 + {m.end()} chars"
             self.txt.tag_add("missed", start_idx, end_idx)
 
     def auto_split(self):
         scroll = self.txt.yview()[0]
         self.history.append(self.txt.get("1.0", "end-1c"))
         content = self.txt.get("1.0", "end-1c")
-
-        # This regex keeps words with apostrophes together
         parts = re.split(r"([^a-zA-Z0-9'/]+)", content)
-
         processed = []
         for p in parts:
             low = p.lower()
-            # If it's a known trip-up (like wouldn't), use your custom split
             if low in self.trip_ups:
                 res = self.trip_ups[low]
                 processed.append(res.capitalize() if p[0].isupper() else res)
@@ -432,22 +457,15 @@ class StreamlinedLyricApp(ctk.CTk):
                 processed.append(p)
             else:
                 processed.append(self.dic.inserted(p, hyphen="/"))
-
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", "".join(processed))
         self.txt.yview_moveto(scroll)
         self.refresh_highlights()
 
     def copy_to_clipboard(self):
-        # Get all text from the textbox
         content = self.txt.get("1.0", "end-1c")
-
-        # Clear the clipboard and append the new content
         self.clipboard_clear()
         self.clipboard_append(content)
-
-        # Optional: Temporary button text change for feedback
-        # This lets you know the "hidden" action actually happened
         current_btn = [
             child
             for child in self.control_bar.winfo_children()
@@ -467,7 +485,7 @@ class StreamlinedLyricApp(ctk.CTk):
             self.txt.insert("1.0", self.history.pop())
             self.txt.yview_moveto(scroll)
             self.refresh_highlights()
-        return "break"  # Prevents standard Tkinter undo from firing
+        return "break"
 
 
 if __name__ == "__main__":

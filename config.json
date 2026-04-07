@@ -24,6 +24,7 @@
         "peachy": "peach/y",
         "peanuts": "pea/nuts",
         "quandary": "quan/dary",
+        "rolling": "roll/ing",
         "sayin": "say/in",
         "screamin": "scream/in",
         "shriners": "shrine/rs",
@@ -36,8 +37,10 @@
         "throwin": "throw/in",
         "tonight": "to/night",
         "weasels": "weas/els",
+        "wiener": "wie/ner",
         "wouldn't": "would/n't",
-        "yellin": "yell/in"
+        "yellin": "yell/in",
+        "yellin'": "yell/in'"
     },
     "false_positives": [
         "bathed",
@@ -52,6 +55,7 @@
         "crashed",
         "crawled",
         "crazed",
+        "dreams",
         "filled",
         "flight",
         "glazed",
@@ -69,14 +73,18 @@
         "smells",
         "spring",
         "stairs",
+        "strained",
         "street",
         "streets",
+        "that's",
         "things",
         "thought",
         "through",
         "turned",
         "twelve",
         "walked",
-        "wracked"
+        "what's",
+        "wracked",
+        "you've"
     ]
 }
