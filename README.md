@@ -28,6 +28,7 @@ ________________________________________________________________________________
 * 🧠 **Smart Highlighting:** The app automatically highlights words that likely need splitting (≥5 letters) or known "Trip-Up" words, ensuring you never miss a syllable.
 * 🛠 **Dynamic Learning:** Right-click any word to instantly add it to your "Ignore" list or "Trip-Up" database. The app gets smarter the more you use it.
 * 📂 **Organized JSON Database:** Your custom split rules are saved to a `config.json` that is automatically alphabetized and cleaned every time the app starts. The program comes with some default words in the database, as well.
+* 📂 **JSON Database Sharing:** You can export or merge the `.json` file to share or combine dictionaries with anyone. It doesn't overwrite your original dictionary. NOTE: You can always download the latest `.json` from the repository which will be a combination of mine and Rose's dictionary, but it will be packaged in every subsequent version to the date posted. Feel free to update the app and merge with the root `config.json` file.
 * ↩️ **Safety Undo:** A dedicated Undo button allows you to step back through your changes, making experimentation with the Auto-Splitter risk-free. You can also fix a mistake like if you write hel/lo and want hell/o, just change it once and it will globally change, as well. Ctrl+Z works, too!
 * 🤖 **Dictionary-Based Auto-Split:** One-click processing uses the Pyphen engine to provide a baseline split for the entire text.
 
