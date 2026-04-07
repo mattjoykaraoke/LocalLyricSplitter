@@ -307,10 +307,45 @@ class StreamlinedLyricApp(ctk.CTk):
         self.geometry("1000x800")
         ctk.set_appearance_mode("dark")
 
+        # Define the rules for each language profile
+        self.lang_profiles = {
+            " [EN] English": {"pyphen": "en_US", "threshold": 5},
+            " [ES] Spanish": {"pyphen": "es", "threshold": 6},
+            " [FR] French": {"pyphen": "fr_FR", "threshold": 7},
+            " [DE] German": {"pyphen": "de_DE", "threshold": 10},
+            " [RU] Russian": {"pyphen": "ru_RU", "threshold": 7},
+        }
+        self.current_lang_name = " [EN] English"
+        # This dynamically sets it to based on the language entry in your dict
+        self.highlight_threshold = self.lang_profiles[self.current_lang_name][
+            "threshold"
+        ]
+
+        # Header frame for the top-right dropdown
+        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_frame.pack(fill="x", padx=20, pady=(10, 0))
+
+        # Language selection
+        self.lang_options = list(self.lang_profiles.keys())
+
+        self.lang_menu = ctk.CTkOptionMenu(
+            self.header_frame,
+            values=self.lang_options,
+            command=self.change_language,
+            width=180,
+            font=("Segoe UI", 14),
+        )
+        self.lang_menu.pack(side="right")
+
+        # This must be on its own line AFTER the menu is created
+        self.lang_menu.set(self.current_lang_name)
+
+        # Build the textbox
         self.txt = ctk.CTkTextbox(self, font=("Consolas", 18), undo=False)
         self.txt.pack(fill="both", expand=True, padx=20, pady=(20, 10))
         self.txt.tag_config("missed", background="#5c4000", foreground="white")
 
+        # Right click context menu
         self.context_menu = Menu(
             self,
             tearoff=0,
@@ -379,6 +414,14 @@ class StreamlinedLyricApp(ctk.CTk):
             fg_color="#721c24",
             width=btn_w,
         ).pack(side="right", padx=10)
+
+    def change_language(self, selected_name):
+        profile = self.lang_profiles.get(selected_name)
+        if profile:
+            self.current_lang_name = selected_name
+            self.dic = pyphen.Pyphen(lang=profile["pyphen"])
+            self.highlight_threshold = profile["threshold"]
+            self.refresh_highlights()
 
     def load_config(self):
         if os.path.exists(self.config_path):
@@ -502,7 +545,7 @@ class StreamlinedLyricApp(ctk.CTk):
         content = self.txt.get("1.0", "end-1c")
         for m in re.finditer(r"(?<![/_])\b[\w']+\b(?![/_])", content):
             word, low = m.group(), m.group().lower()
-            if len(word) <= 5 and low not in self.trip_ups:
+            if len(word) <= self.highlight_threshold and low not in self.trip_ups:
                 continue
             if low in self.false_positives:
                 continue
