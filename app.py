@@ -11,6 +11,8 @@ import customtkinter as ctk
 import pyphen
 from PIL import Image
 
+APP_VERSION = "1.0.3"
+
 
 def get_config_path():
     """
@@ -81,7 +83,12 @@ class AboutDialog(ctk.CTkToplevel):
                 fg_color="#333",
             ).pack(pady=(20, 10))
 
-        about_text = "Vibe Coded in 2026 by Matt Joy.\n\nVersion 1.0.2\nBuilt with CustomTkinter (MIT License)\nSee licenses folder for details."
+        about_text = (
+            f"Vibe Coded in 2026 by Matt Joy.\n\n"
+            f"Version {APP_VERSION}\n"
+            f"Built with CustomTkinter (MIT License)\n"
+            f"See licenses folder for details."
+        )
         ctk.CTkLabel(self, text=about_text, font=("Arial", 13), justify="center").pack(
             pady=(5, 5)
         )
@@ -296,7 +303,7 @@ class StreamlinedLyricApp(ctk.CTk):
         self.history = []
         self.pre_keypress_snapshot = ""
 
-        self.title("Local Lyric Splitter v1.0.0")
+        self.title(f"Local Lyric Splitter v{APP_VERSION}")
         self.geometry("1000x800")
         ctk.set_appearance_mode("dark")
 
@@ -426,15 +433,19 @@ class StreamlinedLyricApp(ctk.CTk):
         word = self.get_word_at_cursor()
         if not word:
             return
+
+        # Clean the word BEFORE showing the dialog so it looks right
+        clean_display = word.replace("/", "").replace("_", "")
+
         dialog = WordInputDialog(
             self,
             title="New Trip-Up",
-            text=f"How should '{word}' be split?",
-            initial_value=word,
+            text=f"How should '{clean_display}' be split?",
+            initial_value=clean_display,
         )
         res = dialog.get_input()
         if res:
-            clean_key = word.replace("/", "").replace("_", "").lower()
+            clean_key = clean_display.lower()
             self.trip_ups[clean_key] = res.strip().lower()
             self.save_config_to_disk()
             self.refresh_highlights()
@@ -503,14 +514,13 @@ class StreamlinedLyricApp(ctk.CTk):
         self.history.append(self.txt.get("1.0", "end-1c"))
         content = self.txt.get("1.0", "end-1c")
 
-        # Split by non-alphanumeric, keeping the delimiters
         parts = re.split(r"([^a-zA-Z0-9'/_-]+)", content)
         processed = []
 
         for p in parts:
             low = p.lower()
 
-            # 1. Check Trip-Up dictionary first (Exact matches)
+            # 1. Check if the ENTIRE chunk is a Trip-Up (e.g., if you added "self-starter")
             if low in self.trip_ups:
                 res = self.trip_ups[low]
                 processed.append(res.capitalize() if p[0].isupper() else res)
@@ -521,17 +531,24 @@ class StreamlinedLyricApp(ctk.CTk):
             ):
                 processed.append(p)
 
-            # 3. Handle Hyphenated words safely (The Fix)
+            # 3. Handle Hyphenated words safely
             elif "-" in p:
-                # Split the compound word by the hyphen
                 sub_words = p.split("-")
                 hyphenated_chunks = []
 
                 for sub in sub_words:
-                    # Run Pyphen ONLY on the clean alphabetic chunks
-                    hyphenated_chunks.append(self.dic.inserted(sub, hyphen="/"))
+                    sub_low = sub.lower()
 
-                # Glue them back together with your preferred KBS hyphen-slash combo
+                    # THE FIX: Check the dictionary for the sub-word FIRST
+                    if sub_low in self.trip_ups:
+                        res = self.trip_ups[sub_low]
+                        hyphenated_chunks.append(
+                            res.capitalize() if sub and sub[0].isupper() else res
+                        )
+                    else:
+                        # Fallback to Pyphen
+                        hyphenated_chunks.append(self.dic.inserted(sub, hyphen="/"))
+
                 processed.append("-/".join(hyphenated_chunks))
 
             # 4. Standard Pyphen Auto-Split

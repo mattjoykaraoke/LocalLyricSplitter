@@ -80,4 +80,8 @@ ________________________________________________________________________________
 ### 🍺 Acknowledgements
 Thank you to the creators at the [diveBar discord](https://discord.gg/diveBar). I'm proud to be one of you.
 
-Special thanks to [incidentist](https://github.com/incidentist) for his project, [The Tüül](https://the-tuul.com/), which inspired this project.
+Special thanks to:
+
+[incidentist](https://github.com/incidentist) for his project, [The Tüül](https://the-tuul.com/), which inspired this project.
+
+[Rose's Garden Variety Karaoke](https://www.youtube.com/@Roses-karaoke) for her stress testing and excellent suggestions which help make the application helpful for everyone. She also provided her personal `.json` dictionary for the good of the community.

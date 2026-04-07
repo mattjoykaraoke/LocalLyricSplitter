@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [1.0.3] - 2026-04-07
+
+### Fixed
+- **Improved Regex Logic:** Similar issue fixed to previous.
+
 ## [1.0.2] - 2026-04-07
 
 ### Fixed
