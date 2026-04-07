@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [1.0.2] - 2026-04-07
+
+### Fixed
+- **Improved Hyphenation Logic:** The new logic splits hyphened words into chunks and reconnects them with "-/" so the internal dictionary logic does not add double slashes anymore.
+
 ## [1.0.1] - 2026-04-07
 
 ### Added
