@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [1.1.0] - 2026-04-07
+
+### Added
+- **Multiple Languages:** English (default), Spanish, French, German, and Russian are all natively supported in `Pyphen` so you can now use the drop down menu to select them.
+
 ## [1.0.3] - 2026-04-07
 
 ### Fixed

@@ -11,7 +11,7 @@ import customtkinter as ctk
 import pyphen
 from PIL import Image
 
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.1.0"
 
 
 def get_config_path():

@@ -10,6 +10,7 @@ ENV/
 # These are the heavy folders created during the build process
 build/
 dist/
+release/
 *.spec
 *.bat
 *.iss
