@@ -81,7 +81,7 @@ class AboutDialog(ctk.CTkToplevel):
                 fg_color="#333",
             ).pack(pady=(20, 10))
 
-        about_text = "Vibe Coded in 2026 by Matt Joy.\n\nVersion 1.0.0\nBuilt with CustomTkinter (MIT License)\nSee licenses folder for details."
+        about_text = "Vibe Coded in 2026 by Matt Joy.\n\nVersion 1.0.1\nBuilt with CustomTkinter (MIT License)\nSee licenses folder for details."
         ctk.CTkLabel(self, text=about_text, font=("Arial", 13), justify="center").pack(
             pady=(5, 5)
         )
@@ -502,19 +502,36 @@ class StreamlinedLyricApp(ctk.CTk):
         scroll = self.txt.yview()[0]
         self.history.append(self.txt.get("1.0", "end-1c"))
         content = self.txt.get("1.0", "end-1c")
-        parts = re.split(r"([^a-zA-Z0-9'/]+)", content)
+
+        # Split by non-alphanumeric, keeping the delimiters
+        parts = re.split(r"([^a-zA-Z0-9'/_-]+)", content)
         processed = []
+
         for p in parts:
             low = p.lower()
+
+            # 1. Check Trip-Up dictionary first
             if low in self.trip_ups:
                 res = self.trip_ups[low]
                 processed.append(res.capitalize() if p[0].isupper() else res)
+
+            # 2. Skip whitespace, already-split words, or punctuation
             elif (
                 not p.strip() or not any(c.isalnum() for c in p) or "/" in p or "_" in p
             ):
                 processed.append(p)
+
+            # 3. Handle Hyphenated words (e.g., happy-place -> happy-/place)
+            elif "-" in p:
+                # Add slash after hyphen if not already present
+                hyphen_split = re.sub(r"(-)(?!\/)", r"-/", p)
+                # Still run Pyphen on the resulting pieces to catch syllables
+                processed.append(self.dic.inserted(hyphen_split, hyphen="/"))
+
+            # 4. Standard Pyphen Auto-Split
             else:
                 processed.append(self.dic.inserted(p, hyphen="/"))
+
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", "".join(processed))
         self.txt.yview_moveto(scroll)
