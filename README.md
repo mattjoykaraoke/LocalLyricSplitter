@@ -67,9 +67,8 @@ ________________________________________________________________________________
 
 ### 🛠 Technology
 * **Python**
-* **CustomTkinter** (Modern Dark UI)
+* **PySide6** (Professional Qt-based Dark UI)
 * **Pyphen** (Syllable Hyphenation)
-* **Pillow** (Image Processing)
 * **PyInstaller** (One-dir distribution)
 
 __________________________________________________________________________________________
