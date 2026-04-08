@@ -28,7 +28,7 @@ ________________________________________________________________________________
 * 🧠 **Smart Highlighting:** The app automatically highlights words that likely need splitting (≥5 letters) or known "Trip-Up" words, ensuring you never miss a syllable.
 * 🛠 **Dynamic Learning:** Right-click any word to instantly add it to your "Ignore" list or "Trip-Up" database. The app gets smarter the more you use it.
 * 🧹 **Sanitizer Logic Summary:**
-  - **Ad and Tag Removal:** Specific repetetive phrases like "See...Live" (9 lines) and "You might also like" (7 lines) patterns from Genius are removed entirely when you click `Sanitize`. `[Verse]`, `[Chorus]`, etc. are also removed.
+  - **Ad and Tag Removal:** Specific repetitive phrases like "See...Live" (9 lines) and "You might also like" (7 lines) patterns from Genius are removed entirely when you click `Sanitize`. `[Verse]`, `[Chorus]`, etc. are also removed.
   - **Spacing Protection:** `Sanitize` leaves exactly one blank line between stanzas, even if the source text had messy double-spacing or no spacing at all (if there were `[Tags]`).
   - **History Preservation:** The `Undo` button acts as a safety net if a "Sanitize" goes wrong.
 * 📂 **Organized JSON Database:** Your custom split rules are saved to a `config.json` that is automatically alphabetized and cleaned every time the app starts. The program comes with some default words in the database, as well.
