@@ -1,2 +1,3 @@
-customtkinter>=5.2.0
-pyphen>=0.14.0
+PySide6
+pyphen
+pyinstaller

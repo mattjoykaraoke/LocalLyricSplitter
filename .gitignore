@@ -25,6 +25,7 @@ release/
 Thumbs.db
 
 # --- Assets ---
+flags/
 # If you have raw high-res photoshop/illustrator files in your
 # assets folder that shouldn't be on GitHub, ignore them by extension:
 # assets/*.psd

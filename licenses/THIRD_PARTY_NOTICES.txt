@@ -1,0 +1,19 @@
+Local Lyric Splitter includes third-party software components:
+
+1. Qt / PySide6
+   Licensed under the GNU Lesser General Public License v3 (LGPL-3.0).
+   Source code available at:
+   https://code.qt.io/
+   https://pyside.org/
+
+These components are dynamically linked and may be replaced
+in accordance with the terms of the LGPL.
+
+2. Pyphen is released under the GPL 2.0+/LGPL 2.1+/MPL 1.1 tri-license.
+See COPYING.GPL, COPYING.LGPL and COPYING.MPL for more details.
+
+Many dictionaries are included in pyphen, they come from the LibreOffice git
+repository and are distributed under GPL, LGPL and/or MPL. See the
+dictionaries and the libreoffice's repository for more details.
+
+https://git.libreoffice.org/dictionaries

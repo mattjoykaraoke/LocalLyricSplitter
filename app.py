@@ -3,15 +3,42 @@ import os
 import re
 import shutil
 import sys
-import webbrowser
+import urllib.request
 from pathlib import Path
-from tkinter import Menu, filedialog, messagebox
 
-import customtkinter as ctk
 import pyphen
-from PIL import Image
+from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QFont,
+    QIcon,
+    QKeyEvent,
+    QKeySequence,
+    QPixmap,
+    QShortcut,
+    QTextCharFormat,
+    QTextCursor,
+)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "2.0.0"
 
 
 def get_config_path():
@@ -26,14 +53,15 @@ def get_config_path():
         local_config = Path(__file__).parent / "config.json"
         return str(local_config)
 
-    app_data_dir = Path(os.getenv("APPDATA")) / "LocalLyricSplitter"
+    # Added fallback empty string to satisfy linter type checking for os.getenv
+    app_data_dir = Path(os.getenv("APPDATA", "")) / "LocalLyricSplitter"
     config_file = app_data_dir / "config.json"
 
     if not app_data_dir.exists():
         app_data_dir.mkdir(parents=True)
 
     if not config_file.exists():
-        bundled_config = Path(sys._MEIPASS) / "config.json"
+        bundled_config = Path(getattr(sys, "_MEIPASS", "")) / "config.json"
         if bundled_config.exists():
             try:
                 shutil.copy(bundled_config, config_file)
@@ -48,228 +76,205 @@ def get_config_path():
     return str(config_file)
 
 
-class AboutDialog(ctk.CTkToplevel):
+class AboutDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("About Local Lyric Splitter")
-        self.geometry("450x520")
-        self.resizable(False, False)
+        self.setWindowTitle("About Local Lyric Splitter")
+        self.setFixedSize(450, 520)
+        self.app_path = parent.app_path
 
-        # Professional Layering Fix
-        self.transient(parent)
-        self.grab_set()
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.grid_columnconfigure(0, weight=1)
-
-        display_size = (300, 200)
-        assets_path = os.path.join(parent.app_path, "assets")
+        assets_path = os.path.join(self.app_path, "assets")
         image_path = os.path.join(assets_path, "about_logo.png")
 
+        self.logo_label = QLabel()
         if os.path.exists(image_path):
-            try:
-                pil_image = Image.open(image_path)
-                self.logo_image = ctk.CTkImage(
-                    light_image=pil_image, dark_image=pil_image, size=display_size
-                )
-            except Exception:
-                self.logo_image = None
+            pixmap = QPixmap(image_path).scaled(
+                300,
+                200,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self.logo_label.setPixmap(pixmap)
         else:
-            self.logo_image = None
+            self.logo_label.setText("[ about_logo.png not found ]")
+            self.logo_label.setFixedSize(300, 200)
+            self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.logo_label.setStyleSheet("background-color: #333; color: white;")
 
-        if self.logo_image:
-            ctk.CTkLabel(self, image=self.logo_image, text="").pack(pady=(20, 10))
-        else:
-            ctk.CTkLabel(
-                self,
-                text="[ about_logo.png not found ]",
-                width=300,
-                height=200,
-                fg_color="#333",
-            ).pack(pady=(20, 10))
+        layout.addWidget(self.logo_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
         about_text = (
             f"Vibe Coded in 2026 by Matt Joy.\n\n"
             f"Version {APP_VERSION}\n"
-            f"Built with CustomTkinter (MIT License)\n"
+            f"Built with PySide6 (LGPL)\n"
             f"See licenses folder for details."
         )
-        ctk.CTkLabel(self, text=about_text, font=("Arial", 13), justify="center").pack(
-            pady=(5, 5)
-        )
+        text_label = QLabel(about_text)
+        text_label.setFont(QFont("Arial", 11))
+        text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(text_label)
 
-        yt = ctk.CTkLabel(
-            self,
-            text="youtube.com/@MattJoyKaraoke",
-            font=("Arial", 12, "underline"),
-            text_color="#708090",
-            cursor="hand2",
+        yt_link = QLabel(
+            '<a href="https://www.youtube.com/@MattJoyKaraoke" style="color:#708090;">youtube.com/@MattJoyKaraoke</a>'
         )
-        yt.pack(pady=2)
-        yt.bind(
-            "<Button-1>",
-            lambda e: webbrowser.open("https://www.youtube.com/@MattJoyKaraoke"),
-        )
+        yt_link.setFont(QFont("Arial", 10))
+        yt_link.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        yt_link.setOpenExternalLinks(True)
+        layout.addWidget(yt_link)
 
-        gh = ctk.CTkLabel(
-            self,
-            text="github.com/mattjoykaraoke",
-            font=("Arial", 12, "underline"),
-            text_color="#708090",
-            cursor="hand2",
+        gh_link = QLabel(
+            '<a href="https://github.com/mattjoykaraoke" style="color:#708090;">github.com/mattjoykaraoke</a>'
         )
-        gh.pack(pady=2)
-        gh.bind(
-            "<Button-1>", lambda e: webbrowser.open("https://github.com/mattjoykaraoke")
-        )
+        gh_link.setFont(QFont("Arial", 10))
+        gh_link.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        gh_link.setOpenExternalLinks(True)
+        layout.addWidget(gh_link)
 
-        ctk.CTkButton(self, text="Close", width=120, command=self.destroy).pack(
-            pady=(20, 15)
-        )
+        close_btn = QPushButton("Close")
+        close_btn.setFixedWidth(120)
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
 
-class WordInputDialog(ctk.CTkToplevel):
+class WordInputDialog(QDialog):
     def __init__(self, parent, title, text, initial_value=""):
         super().__init__(parent)
-        self.title(title)
-        self.geometry("400x220")
-        self.resizable(False, False)
+        self.setWindowTitle(title)
+        self.setFixedSize(400, 220)
 
-        # Professional Layering Fix
-        self.transient(parent)
-        self.grab_set()
+        # Renamed from self.result to self.user_input to avoid Qt native method collision
+        self.user_input = None
 
-        self.result = None
+        layout = QVBoxLayout(self)
 
-        ctk.CTkLabel(self, text=text, font=("Arial", 14)).pack(pady=(25, 10))
-        self.entry = ctk.CTkEntry(self, width=300)
-        self.entry.pack(pady=10)
-        self.entry.insert(0, initial_value)
-        self.entry.focus_set()
+        label = QLabel(text)
+        label.setFont(QFont("Arial", 12))
+        layout.addWidget(label)
 
-        self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.btn_frame.pack(pady=20)
+        self.entry = QLineEdit()
+        self.entry.setText(initial_value)
+        layout.addWidget(self.entry)
+        self.entry.setFocus()
 
-        ctk.CTkButton(self.btn_frame, text="Ok", width=100, command=self.submit).pack(
-            side="left", padx=10
-        )
-        ctk.CTkButton(
-            self.btn_frame, text="Cancel", width=100, command=self.destroy
-        ).pack(side="left", padx=10)
-        self.bind("<Return>", lambda e: self.submit())
+        btn_layout = QHBoxLayout()
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        ok_btn = QPushButton("Ok")
+        ok_btn.setFixedWidth(100)
+        ok_btn.clicked.connect(self.submit)
+        btn_layout.addWidget(ok_btn)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setFixedWidth(100)
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+
+        layout.addLayout(btn_layout)
 
     def submit(self):
-        self.result = self.entry.get()
-        self.destroy()
+        self.user_input = self.entry.text()
+        self.accept()
 
     def get_input(self):
-        self.master.wait_window(self)
-        return self.result
+        self.exec()
+        return self.user_input
 
 
-class ConfigEditor(ctk.CTkToplevel):
+class ConfigEditor(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
-        self.parent = parent
-        self.title("Configuration Editor")
-        self.geometry("620x600")
+        # Renamed from self.parent to avoid colliding with QDialog's built-in parent() method
+        self.main_app = parent
+        self.setWindowTitle("Configuration Editor")
+        self.resize(620, 600)
 
-        # Proper Sandwich Layering Fix
-        self.transient(parent)
-        self.grab_set()
+        layout = QVBoxLayout(self)
 
-        self.grid_columnconfigure((0, 1), weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        header_layout = QHBoxLayout()
+        header_layout.addWidget(QLabel("<b>Trip-Up Words (word: split)</b>"))
+        header_layout.addWidget(QLabel("<b>False Positives (ignore)</b>"))
+        layout.addLayout(header_layout)
 
-        ctk.CTkLabel(
-            self, text="Trip-Up Words (word: split)", font=("Arial", 14, "bold")
-        ).grid(row=0, column=0, pady=10)
-        ctk.CTkLabel(
-            self, text="False Positives (ignore)", font=("Arial", 14, "bold")
-        ).grid(row=0, column=1, pady=10)
+        lists_layout = QHBoxLayout()
+        self.trip_up_list = QTextEdit()
+        self.trip_up_list.setFont(QFont("Consolas", 11))
 
-        self.trip_up_list = ctk.CTkTextbox(self, width=250, font=("Consolas", 12))
-        self.trip_up_list.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-        self.false_pos_list = ctk.CTkTextbox(self, width=250, font=("Consolas", 12))
-        self.false_pos_list.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+        self.false_pos_list = QTextEdit()
+        self.false_pos_list.setFont(QFont("Consolas", 11))
+
+        lists_layout.addWidget(self.trip_up_list)
+        lists_layout.addWidget(self.false_pos_list)
+        layout.addLayout(lists_layout)
 
         self.load_into_editor()
 
-        # Bottom Button Row
-        self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.btn_frame.grid(row=2, column=0, columnspan=2, pady=20)
+        btn_layout = QHBoxLayout()
 
-        ctk.CTkButton(
-            self.btn_frame,
-            text="Save & Apply",
-            command=self.save_and_close,
-            fg_color="#2c5d3f",
-            width=130,
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            self.btn_frame,
-            text="Export Library",
-            command=self.export_config,
-            fg_color="#1f538d",
-            width=130,
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            self.btn_frame,
-            text="Import/Merge",
-            command=self.import_config,
-            fg_color="#444",
-            width=130,
-        ).pack(side="left", padx=5)
+        save_btn = QPushButton("Save && Apply")
+        save_btn.setStyleSheet(
+            "background-color: #2c5d3f; color: white; font-weight: bold;"
+        )
+        save_btn.clicked.connect(self.save_and_close)
+
+        export_btn = QPushButton("Export Library")
+        export_btn.setStyleSheet(
+            "background-color: #1f538d; color: white; font-weight: bold;"
+        )
+        export_btn.clicked.connect(self.export_config)
+
+        import_btn = QPushButton("Import/Merge")
+        import_btn.setStyleSheet(
+            "background-color: #444; color: white; font-weight: bold;"
+        )
+        import_btn.clicked.connect(self.import_config)
+
+        btn_layout.addWidget(save_btn)
+        btn_layout.addWidget(export_btn)
+        btn_layout.addWidget(import_btn)
+        layout.addLayout(btn_layout)
 
     def load_into_editor(self):
-        self.trip_up_list.delete("1.0", "end")
-        self.false_pos_list.delete("1.0", "end")
-        trip_str = "\n".join([f"{k}: {v}" for k, v in self.parent.trip_ups.items()])
-        self.trip_up_list.insert("1.0", trip_str)
-        false_str = "\n".join(sorted(list(self.parent.false_positives)))
-        self.false_pos_list.insert("1.0", false_str)
+        self.trip_up_list.clear()
+        self.false_pos_list.clear()
+        trip_str = "\n".join([f"{k}: {v}" for k, v in self.main_app.trip_ups.items()])
+        self.trip_up_list.setPlainText(trip_str)
+        false_str = "\n".join(sorted(list(self.main_app.false_positives)))
+        self.false_pos_list.setPlainText(false_str)
 
     def export_config(self):
-        source_path = self.parent.config_path
+        source_path = self.main_app.config_path
 
-        # 1. Disable the Editor so it stays layered but unclickable
-        self.attributes("-disabled", True)
-
-        dest_path = filedialog.asksaveasfilename(
-            title="Export Your Lyric Library",
-            initialfile="LLS_My_Library.json",
-            filetypes=[("JSON File", "*.json")],
-            defaultextension=".json",
+        dest_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Your Lyric Library",
+            "LLS_My_Library.json",
+            "JSON File (*.json)",
         )
-
-        # 2. Re-enable and regain focus
-        self.attributes("-disabled", False)
-        self.focus_force()
 
         if dest_path:
             try:
                 shutil.copy(source_path, dest_path)
-                messagebox.showinfo("Success", f"Library exported to:\n{dest_path}")
+                QMessageBox.information(
+                    self, "Success", f"Library exported to:\n{dest_path}"
+                )
             except Exception as e:
-                messagebox.showerror("Export Failed", f"Could not export file: {e}")
+                QMessageBox.critical(
+                    self, "Export Failed", f"Could not export file: {e}"
+                )
 
     def import_config(self):
-        # 1. Disable the Editor to prevent clicking during dialog
-        self.attributes("-disabled", True)
-
-        # 2. Open the file browser (ONLY ONCE)
-        file_path = filedialog.askopenfilename(
-            title="Select Library to Import", filetypes=[("JSON File", "*.json")]
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Library to Import", "", "JSON File (*.json)"
         )
-
-        # 3. Re-enable and regain focus
-        self.attributes("-disabled", False)
-        self.focus_force()
 
         if not file_path:
             return
 
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 new_data = json.load(f)
 
             new_trips = new_data.get("trip_up_words", {})
@@ -277,178 +282,329 @@ class ConfigEditor(ctk.CTkToplevel):
 
             merged_count = 0
             for k, v in new_trips.items():
-                if k.lower() not in self.parent.trip_ups:
-                    self.parent.trip_ups[k.lower()] = v.lower()
+                if k.lower() not in self.main_app.trip_ups:
+                    self.main_app.trip_ups[k.lower()] = v.lower()
                     merged_count += 1
 
             for fp in new_false:
-                if fp.lower() not in self.parent.false_positives:
-                    self.parent.false_positives.add(fp.lower())
+                if fp.lower() not in self.main_app.false_positives:
+                    self.main_app.false_positives.add(fp.lower())
                     merged_count += 1
 
-            self.parent.save_config_to_disk()
+            self.main_app.save_config_to_disk()
             self.load_into_editor()
-            messagebox.showinfo(
+            QMessageBox.information(
+                self,
                 "Import Success",
                 f"Merged {merged_count} new entries into your library!",
             )
         except Exception as e:
-            messagebox.showerror("Import Error", f"Failed to parse file: {e}")
+            QMessageBox.critical(self, "Import Error", f"Failed to parse file: {e}")
 
     def save_and_close(self):
         new_trip_ups = {}
-        for line in self.trip_up_list.get("1.0", "end-1c").split("\n"):
+        for line in self.trip_up_list.toPlainText().split("\n"):
             if ":" in line:
                 key, val = line.split(":", 1)
                 new_trip_ups[key.strip().lower()] = val.strip().lower()
         new_false_pos = [
             line.strip().lower()
-            for line in self.false_pos_list.get("1.0", "end-1c").split("\n")
+            for line in self.false_pos_list.toPlainText().split("\n")
             if line.strip()
         ]
 
-        self.parent.trip_ups = new_trip_ups
-        self.parent.false_positives = set(new_false_pos)
-        self.parent.save_config_to_disk()
-        self.parent.refresh_highlights()
-        self.destroy()
+        self.main_app.trip_ups = new_trip_ups
+        self.main_app.false_positives = set(new_false_pos)
+        self.main_app.save_config_to_disk()
+        self.main_app.refresh_highlights()
+        self.accept()
 
 
-class StreamlinedLyricApp(ctk.CTk):
+class LyricTextEdit(QTextEdit):
+    def __init__(self, parent_app):
+        super().__init__()
+        self.parent_app = parent_app
+
+        # Enforce exact font via stylesheet to prevent formatting resets
+        self.setStyleSheet("font-family: 'Consolas'; font-size: 14pt;")
+        self.setFont(QFont("Consolas", 14))
+
+        # Disable Rich Text parsing globally
+        self.setAcceptRichText(False)
+
+        # Enable drag and drop
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            # Only accept .txt files
+            if (
+                urls
+                and urls[0].isLocalFile()
+                and urls[0].toLocalFile().lower().endswith(".txt")
+            ):
+                event.acceptProposedAction()
+                return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            if (
+                urls
+                and urls[0].isLocalFile()
+                and urls[0].toLocalFile().lower().endswith(".txt")
+            ):
+                event.acceptProposedAction()
+                return
+        super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            if (
+                urls
+                and urls[0].isLocalFile()
+                and urls[0].toLocalFile().lower().endswith(".txt")
+            ):
+                file_path = urls[0].toLocalFile()
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+
+                    # Take snapshot for undo, set text, and refresh highlighting
+                    self.parent_app.take_snapshot()
+                    self.setPlainText(content)
+                    self.parent_app.refresh_highlights()
+
+                    event.acceptProposedAction()
+                    return
+                except Exception as e:
+                    from PySide6.QtWidgets import QMessageBox
+
+                    QMessageBox.critical(
+                        self, "Error", f"Could not read dragged file: {e}"
+                    )
+        super().dropEvent(event)
+
+    def insertFromMimeData(self, source):
+        # Guaranteed plain text intercept (Strips Genius's HTML layout instantly)
+        if source.hasText():
+            self.insertPlainText(source.text())
+
+    def keyPressEvent(self, event: QKeyEvent):
+        self.parent_app.take_snapshot(event)
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event: QKeyEvent):
+        super().keyReleaseEvent(event)
+        self.parent_app.on_key_release(event)
+
+    def contextMenuEvent(self, event):
+        self.parent_app.show_context_menu(event)
+
+
+class StreamlinedLyricApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
         if getattr(sys, "frozen", False):
-            self.app_path = sys._MEIPASS
+            # Added getattr to satisfy the linter's strict checks for PyInstaller's dynamic properties
+            self.app_path = str(getattr(sys, "_MEIPASS", ""))
             self.exe_dir = os.path.dirname(sys.executable)
         else:
             self.app_path = os.path.dirname(__file__)
             self.exe_dir = self.app_path
 
         self.config_path = get_config_path()
+
+        # Type hints to tell the linter exactly what data lives in these variables
+        self.trip_ups: dict[str, str] = {}
+        self.false_positives: set[str] = set()
+
         self.load_config()
 
         self.dic = pyphen.Pyphen(lang="en_US")
         self.history = []
         self.pre_keypress_snapshot = ""
 
-        self.title(f"Local Lyric Splitter v{APP_VERSION}")
-        self.geometry("1000x800")
-        ctk.set_appearance_mode("dark")
+        self.setWindowTitle(f"Local Lyric Splitter v{APP_VERSION}")
+        self.resize(1000, 800)
 
+        # Updated to use FlagCDN identifier instead of text emojis
         self.lang_profiles = {
-            " [EN] English": {"pyphen": "en_US", "threshold": 5},
-            " [ES] Spanish": {"pyphen": "es", "threshold": 6},
-            " [FR] French": {"pyphen": "fr_FR", "threshold": 7},
-            " [DE] German": {"pyphen": "de_DE", "threshold": 10},
-            " [RU] Russian": {"pyphen": "ru_RU", "threshold": 7},
+            "English": {"flag": "us", "pyphen": "en_US", "threshold": 5},
+            "Spanish": {"flag": "mx", "pyphen": "es", "threshold": 6},
+            "French": {"flag": "fr", "pyphen": "fr_FR", "threshold": 7},
+            "German": {"flag": "de", "pyphen": "de_DE", "threshold": 10},
+            "Russian": {"flag": "ru", "pyphen": "ru_RU", "threshold": 7},
         }
-        self.current_lang_name = " [EN] English"
-        self.highlight_threshold = self.lang_profiles[self.current_lang_name][
-            "threshold"
-        ]
+        self.current_lang_name = "English"
 
-        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.header_frame.pack(fill="x", padx=20, pady=(10, 0))
-
-        self.lang_options = list(self.lang_profiles.keys())
-
-        self.lang_menu = ctk.CTkOptionMenu(
-            self.header_frame,
-            values=self.lang_options,
-            command=self.change_language,
-            width=180,
-            font=("Segoe UI", 14),
-        )
-        self.lang_menu.pack(side="right")
-        self.lang_menu.set(self.current_lang_name)
-
-        self.txt = ctk.CTkTextbox(self, font=("Consolas", 18), undo=False)
-        self.txt.pack(fill="both", expand=True, padx=20, pady=(20, 10))
-        self.txt.tag_config("missed", background="#5c4000", foreground="white")
-
-        self.context_menu = Menu(
-            self,
-            tearoff=0,
-            bg="#2b2b2b",
-            fg="#e0e0e0",
-            font=("Segoe UI", 10),
-            activebackground="#1f538d",
-            activeforeground="white",
-        )
-        self.context_menu.add_command(
-            label="  Ignore (False Positive)  ", command=self.add_to_false_pos
-        )
-        self.context_menu.add_command(
-            label="  Add to Trip-Ups...  ", command=self.add_to_trip_ups
+        # Explicit cast to int to satisfy linter comparison rules
+        self.highlight_threshold: int = int(
+            self.lang_profiles[self.current_lang_name]["threshold"]
         )
 
-        self.txt.bind("<KeyPress>", self.take_snapshot)
-        self.txt.bind("<KeyRelease>", self.on_key_release)
-        self.txt.bind("<Button-3>", self.show_context_menu)
-        self.bind("<Control-z>", self.undo)
-        self.bind("<Control-Z>", self.undo)
+        self.apply_global_styles()
+        self.set_app_icon()
 
-        self.control_bar = ctk.CTkFrame(self)
-        self.control_bar.pack(fill="x", padx=20, pady=10)
-        self.highlight_var = ctk.BooleanVar(value=True)
-        ctk.CTkCheckBox(
-            self.control_bar,
-            text="Highlighting",
-            variable=self.highlight_var,
-            command=self.refresh_highlights,
-        ).pack(side="left", padx=10)
+        # Create Top Menu Bar natively
+        self.menu_bar = self.menuBar()
 
-        btn_w = 110
-        ctk.CTkButton(
-            self.control_bar,
-            text="Auto-Split",
-            command=self.auto_split,
-            fg_color="#2c5d3f",
-            width=btn_w,
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            self.control_bar,
-            text="Copy Lyrics",
-            command=self.copy_to_clipboard,
-            fg_color="#1f538d",
-            width=btn_w,
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            self.control_bar,
-            text="Sanitize",
-            command=self.sanitize_lyrics,
-            fg_color="#721c24",
-            width=btn_w,
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            self.control_bar,
-            text="Config",
-            command=self.open_editor,
-            fg_color="#444",
-            width=btn_w,
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            self.control_bar,
-            text="About",
-            command=self.open_about,
-            fg_color="#444",
-            width=btn_w,
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            self.control_bar,
-            text="Undo",
-            command=self.undo,
-            fg_color="#721c24",
-            width=btn_w,
-        ).pack(side="right", padx=10)
+        # File Menu
+        self.file_menu = self.menu_bar.addMenu("File")
+        open_action = QAction("Open .txt File", self)
+        open_action.triggered.connect(self.import_from_txt)
+        self.file_menu.addAction(open_action)
+
+        save_action = QAction("Save as .txt", self)
+        save_action.triggered.connect(self.export_to_txt)
+        self.file_menu.addAction(save_action)
+
+        self.file_menu.addSeparator()
+
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.close)
+        self.file_menu.addAction(exit_action)
+
+        # Settings Menu
+        self.settings_menu = self.menu_bar.addMenu("Settings")
+        config_action = QAction("Configuration Editor", self)
+        config_action.triggered.connect(self.open_editor)
+        self.settings_menu.addAction(config_action)
+
+        # Help Menu
+        self.help_menu = self.menu_bar.addMenu("Help")
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self.open_about)
+        self.help_menu.addAction(about_action)
+
+        # Central Widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        self.main_layout = QVBoxLayout(central_widget)
+
+        self.header_frame = QHBoxLayout()
+        self.header_frame.addStretch()
+
+        self.lang_menu = QComboBox()
+        self.lang_menu.setIconSize(QSize(20, 15))
+
+        for lang_name, profile in self.lang_profiles.items():
+            icon = self.get_flag_icon(profile["flag"])
+            self.lang_menu.addItem(icon, lang_name)
+
+        self.lang_menu.currentTextChanged.connect(self.change_language)
+        self.lang_menu.setMinimumWidth(150)
+        self.header_frame.addWidget(self.lang_menu)
+        self.main_layout.addLayout(self.header_frame)
+
+        # Editor
+        self.txt = LyricTextEdit(self)
+        self.main_layout.addWidget(self.txt)
+
+        # Setup native undo binding
+        self.undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
+        self.undo_shortcut.activated.connect(self.undo)
+
+        self.control_bar = QHBoxLayout()
+
+        self.highlight_var = QCheckBox("Highlighting")
+        self.highlight_var.setChecked(True)
+        self.highlight_var.stateChanged.connect(self.refresh_highlights)
+        self.control_bar.addWidget(self.highlight_var)
+
+        self.add_control_btn("Auto-Split", "#2c5d3f", self.auto_split)
+
+        self.copy_btn = QPushButton("Copy Lyrics")
+        self.copy_btn.setStyleSheet(
+            "background-color: #1f538d; color: white; font-weight: bold; padding: 6px;"
+        )
+        self.copy_btn.setMinimumWidth(110)
+        self.copy_btn.clicked.connect(self.copy_to_clipboard)
+        self.control_bar.addWidget(self.copy_btn)
+
+        self.add_control_btn("Sanitize", "#721c24", self.sanitize_lyrics)
+        self.add_control_btn("Config", "#444", self.open_editor)
+        self.add_control_btn("About", "#444", self.open_about)
+
+        self.control_bar.addStretch()
+
+        self.add_control_btn("Undo", "#721c24", self.undo)
+
+        self.main_layout.addLayout(self.control_bar)
+
+    def get_flag_icon(self, country_code):
+        config_dir = os.path.dirname(self.config_path)
+        flags_dir = os.path.join(config_dir, "flags")
+        os.makedirs(flags_dir, exist_ok=True)
+
+        icon_path = os.path.join(flags_dir, f"{country_code}.png")
+        if not os.path.exists(icon_path):
+            try:
+                url = f"https://flagcdn.com/w20/{country_code}.png"
+                urllib.request.urlretrieve(url, icon_path)
+            except Exception:
+                return QIcon()
+        return QIcon(icon_path)
+
+    def add_control_btn(self, text, color, command):
+        btn = QPushButton(text)
+        btn.setStyleSheet(
+            f"background-color: {color}; color: white; font-weight: bold; padding: 6px;"
+        )
+        btn.setMinimumWidth(110)
+        btn.clicked.connect(command)
+        self.control_bar.addWidget(btn)
+
+    def apply_global_styles(self):
+        app_instance = QApplication.instance()
+        if isinstance(app_instance, QApplication):
+            app_instance.setStyleSheet("""
+                QMainWindow, QDialog { background-color: #242424; color: #e0e0e0; }
+
+                QLabel, QCheckBox { color: #e0e0e0; background-color: transparent; }
+
+                QTextEdit { background-color: #1e1e1e; color: #ffffff; border: 1px solid #333; }
+                QLineEdit { background-color: #333; color: white; border: 1px solid #555; padding: 4px; }
+
+                QMenuBar { background-color: #242424; color: white; border-bottom: 1px solid #333; }
+                QMenuBar::item { padding: 6px 12px; background: transparent; }
+                QMenuBar::item:selected { background-color: #1f538d; border-radius: 4px; }
+
+                QMenu { background-color: #2b2b2b; color: white; border: 1px solid #444; padding: 4px; }
+                QMenu::item { padding: 6px 25px 6px 20px; border-radius: 4px; }
+                QMenu::item:selected { background-color: #1f538d; }
+
+                QComboBox { background-color: #333; color: white; border: 1px solid #555; padding: 4px; }
+
+                QPushButton { background-color: #444; color: white; border: none; border-radius: 4px; padding: 6px 12px; }
+                QPushButton:hover { background-color: #555; }
+            """)
+
+    def set_app_icon(self):
+        icon_path = os.path.join(self.app_path, "assets", "icon.ico")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(self.app_path, "assets", "about_logo.png")
+
+        if os.path.exists(icon_path):
+            app_icon = QIcon(icon_path)
+            self.setWindowIcon(app_icon)
+
+            # Use isinstance to narrow the type from QCoreApplication to QApplication
+            app_instance = QApplication.instance()
+            if isinstance(app_instance, QApplication):
+                app_instance.setWindowIcon(app_icon)
 
     def change_language(self, selected_name):
         profile = self.lang_profiles.get(selected_name)
         if profile:
             self.current_lang_name = selected_name
             self.dic = pyphen.Pyphen(lang=profile["pyphen"])
-            self.highlight_threshold = profile["threshold"]
+            # Cast threshold to int to prevent comparison errors
+            self.highlight_threshold = int(profile["threshold"])
             self.refresh_highlights()
 
     def load_config(self):
@@ -456,14 +612,21 @@ class StreamlinedLyricApp(ctk.CTk):
             with open(self.config_path, "r") as f:
                 try:
                     config = json.load(f)
-                    self.trip_ups = dict(
-                        sorted(config.get("trip_up_words", {}).items())
-                    )
-                    self.false_positives = set(config.get("false_positives", []))
+
+                    # Force the items to strings to satisfy the linter's strict type checking
+                    raw_trip_ups = config.get("trip_up_words", {})
+                    self.trip_ups = {
+                        str(k): str(v) for k, v in sorted(raw_trip_ups.items())
+                    }
+
+                    raw_false_pos = config.get("false_positives", [])
+                    self.false_positives = {str(word) for word in raw_false_pos}
                 except json.JSONDecodeError:
-                    self.trip_ups, self.false_positives = {}, set()
+                    self.trip_ups = {}
+                    self.false_positives = set()
         else:
-            self.trip_ups, self.false_positives = {}, set()
+            self.trip_ups = {}
+            self.false_positives = set()
 
     def save_config_to_disk(self):
         data = {
@@ -473,15 +636,67 @@ class StreamlinedLyricApp(ctk.CTk):
         with open(self.config_path, "w") as f:
             json.dump(data, f, indent=4)
 
+    def export_to_txt(self):
+        content = self.txt.toPlainText()
+        if not content.strip():
+            QMessageBox.warning(self, "Empty", "There are no lyrics to export!")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Lyrics to Text File",
+            "lyric_export.txt",
+            "Text Files (*.txt);;All Files (*.*)",
+        )
+
+        if file_path:
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                QMessageBox.information(
+                    self, "Success", f"Lyrics saved to:\n{file_path}"
+                )
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not save file: {e}")
+
+    def import_from_txt(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Open Lyrics File", "", "Text Files (*.txt);;All Files (*.*)"
+        )
+
+        if file_path:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.take_snapshot()
+                self.txt.setPlainText(content)
+                self.refresh_highlights()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not read file: {e}")
+
     def show_context_menu(self, event):
-        self.txt.mark_set("insert", self.txt.index(f"@{event.x},{event.y}"))
+        tc = self.txt.cursorForPosition(event.pos())
+        self.txt.setTextCursor(tc)
+
         if self.get_word_at_cursor():
-            self.context_menu.post(event.x_root, event.y_root)
+            menu = QMenu(self)
+
+            ignore_action = QAction("  Ignore (False Positive)  ", self)
+            ignore_action.triggered.connect(self.add_to_false_pos)
+            menu.addAction(ignore_action)
+
+            add_action = QAction("  Add to Trip-Ups...  ", self)
+            add_action.triggered.connect(self.add_to_trip_ups)
+            menu.addAction(add_action)
+
+            menu.exec(event.globalPos())
 
     def get_word_at_cursor(self):
-        cursor_pos = self.txt.index("insert")
-        line_text = self.txt.get(f"{cursor_pos} linestart", f"{cursor_pos} lineend")
-        col = int(cursor_pos.split(".")[1])
+        tc = self.txt.textCursor()
+        tc.select(QTextCursor.SelectionType.LineUnderCursor)
+        line_text = tc.selectedText()
+        col = self.txt.textCursor().positionInBlock()
+
         match = next(
             (
                 m
@@ -520,27 +735,35 @@ class StreamlinedLyricApp(ctk.CTk):
             self.auto_split()
 
     def open_editor(self):
-        ConfigEditor(self)
+        editor = ConfigEditor(self)
+        editor.exec()
 
     def open_about(self):
-        AboutDialog(self)
+        about = AboutDialog(self)
+        about.exec()
 
     def take_snapshot(self, event=None):
-        if event is None or (hasattr(event, "char") and event.char in ["/", "_"]):
-            self.history.append(self.txt.get("1.0", "end-1c"))
+        if event is None or (hasattr(event, "text") and event.text() in ["/", "_"]):
+            self.history.append(self.txt.toPlainText())
 
     def on_key_release(self, event):
-        if event.char in ["/", "_"]:
+        if hasattr(event, "text") and event.text() in ["/", "_"]:
             self.live_sync_word()
         self.refresh_highlights()
 
     def live_sync_word(self):
         if not self.pre_keypress_snapshot:
             return
-        scroll, cursor = self.txt.yview()[0], self.txt.index("insert")
-        current_content = self.txt.get("1.0", "end-1c")
-        full_line = self.txt.get(f"{cursor} linestart", f"{cursor} lineend")
-        col = int(cursor.split(".")[1])
+
+        scroll = self.txt.verticalScrollBar().value()
+        cursor_pos = self.txt.textCursor().position()
+        current_content = self.txt.toPlainText()
+
+        tc = self.txt.textCursor()
+        tc.select(QTextCursor.SelectionType.LineUnderCursor)
+        full_line = tc.selectedText()
+        col = self.txt.textCursor().positionInBlock()
+
         target = next(
             (
                 m.group()
@@ -558,29 +781,52 @@ class StreamlinedLyricApp(ctk.CTk):
             if pattern.search(self.pre_keypress_snapshot):
                 self.history.append(self.pre_keypress_snapshot)
                 self.pre_keypress_snapshot = ""
-                self.txt.delete("1.0", "end")
-                self.txt.insert("1.0", pattern.sub(target, current_content))
-                self.txt.mark_set("insert", cursor)
-                self.txt.yview_moveto(scroll)
+
+                new_text = pattern.sub(target, current_content)
+                self.txt.setPlainText(new_text)
+
+                new_tc = self.txt.textCursor()
+                new_tc.setPosition(cursor_pos)
+                self.txt.setTextCursor(new_tc)
+                self.txt.verticalScrollBar().setValue(scroll)
 
     def refresh_highlights(self):
-        self.txt.tag_remove("missed", "1.0", "end")
-        if not self.highlight_var.get():
+        self.txt.setExtraSelections([])
+        if not self.highlight_var.isChecked():
             return
-        content = self.txt.get("1.0", "end-1c")
+
+        content = self.txt.toPlainText()
+        selections = []
+
+        fmt = QTextCharFormat()
+        fmt.setBackground(QColor("#5c4000"))
+        fmt.setForeground(QColor("white"))
+
         for m in re.finditer(r"(?<![/_])\b[\w']+\b(?![/_])", content):
             word, low = m.group(), m.group().lower()
-            if len(word) <= self.highlight_threshold and low not in self.trip_ups:
+            # Explicit cast of length check logic to avoid comparison mismatch warnings
+            if (
+                int(len(word)) <= int(self.highlight_threshold)
+                and low not in self.trip_ups
+            ):
                 continue
             if low in self.false_positives:
                 continue
-            start_idx, end_idx = f"1.0 + {m.start()} chars", f"1.0 + {m.end()} chars"
-            self.txt.tag_add("missed", start_idx, end_idx)
+
+            sel = QTextEdit.ExtraSelection()
+            sel.format = fmt
+            tc = self.txt.textCursor()
+            tc.setPosition(m.start())
+            tc.setPosition(m.end(), QTextCursor.MoveMode.KeepAnchor)
+            sel.cursor = tc
+            selections.append(sel)
+
+        self.txt.setExtraSelections(selections)
 
     def auto_split(self):
-        scroll = self.txt.yview()[0]
-        self.history.append(self.txt.get("1.0", "end-1c"))
-        content = self.txt.get("1.0", "end-1c")
+        scroll = self.txt.verticalScrollBar().value()
+        self.history.append(self.txt.toPlainText())
+        content = self.txt.toPlainText()
         parts = re.split(r"([^a-zA-Z0-9'/_-]+)", content)
         processed = []
         for p in parts:
@@ -607,35 +853,37 @@ class StreamlinedLyricApp(ctk.CTk):
                 processed.append("-/".join(hyphenated_chunks))
             else:
                 processed.append(self.dic.inserted(p, hyphen="/"))
-        self.txt.delete("1.0", "end")
-        self.txt.insert("1.0", "".join(processed))
-        self.txt.yview_moveto(scroll)
+
+        self.txt.setPlainText("".join(processed))
+        self.txt.verticalScrollBar().setValue(scroll)
         self.refresh_highlights()
 
+    def reset_copy_btn(self):
+        self.copy_btn.setText("Copy Lyrics")
+        self.copy_btn.setStyleSheet(
+            "background-color: #1f538d; color: white; font-weight: bold; padding: 6px;"
+        )
+
     def copy_to_clipboard(self):
-        content = self.txt.get("1.0", "end-1c")
-        self.clipboard_clear()
-        self.clipboard_append(content)
-        current_btn = [
-            child
-            for child in self.control_bar.winfo_children()
-            if isinstance(child, ctk.CTkButton) and child.cget("text") == "Copy Lyrics"
-        ]
-        if current_btn:
-            btn = current_btn[0]
-            btn.configure(text="Copied!", fg_color="#2c5d3f")
-            self.after(
-                1000, lambda: btn.configure(text="Copy Lyrics", fg_color="#1f538d")
-            )
+        content = self.txt.toPlainText()
+        QApplication.clipboard().setText(content)
+
+        self.copy_btn.setText("Copied!")
+        self.copy_btn.setStyleSheet(
+            "background-color: #2c5d3f; color: white; font-weight: bold; padding: 6px;"
+        )
+        QTimer.singleShot(1000, lambda: self.reset_copy_btn())
 
     def sanitize_lyrics(self):
         """Removes Genius metadata, ads, and structural tags while preserving stanza spacing."""
         self.take_snapshot(None)
-        content = self.txt.get("1.0", "end-1c")
+        content = self.txt.toPlainText()
         lines = content.splitlines()
         cleaned_lines = []
         skip_count = 0
-        for i, line in enumerate(lines):
+
+        # Removed unused 'i' variable from enumerate
+        for line in lines:
             stripped = line.strip()
             if skip_count > 0:
                 skip_count -= 1
@@ -653,20 +901,19 @@ class StreamlinedLyricApp(ctk.CTk):
             else:
                 cleaned_lines.append(line_no_tags)
         final_text = "\n".join(cleaned_lines).strip()
-        self.txt.delete("1.0", "end")
-        self.txt.insert("1.0", final_text)
+        self.txt.setPlainText(final_text)
         self.refresh_highlights()
 
     def undo(self, event=None):
         if self.history:
-            scroll = self.txt.yview()[0]
-            self.txt.delete("1.0", "end")
-            self.txt.insert("1.0", self.history.pop())
-            self.txt.yview_moveto(scroll)
+            scroll = self.txt.verticalScrollBar().value()
+            self.txt.setPlainText(self.history.pop())
+            self.txt.verticalScrollBar().setValue(scroll)
             self.refresh_highlights()
-        return "break"
 
 
 if __name__ == "__main__":
-    app = StreamlinedLyricApp()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    window = StreamlinedLyricApp()
+    window.show()
+    sys.exit(app.exec())
