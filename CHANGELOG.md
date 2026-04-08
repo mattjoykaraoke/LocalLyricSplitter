@@ -8,7 +8,7 @@ All notable changes to Local Lyric Splitter will be documented in this file.
 **Complete UI Redesign:** Using PySide6 makes more sense and works better with high DPI screens and looks a lot more modern. Flags are now used for the language drop down, as well.
 **Load and Save .txt files:** You can save your work or load up a lyrics `.txt` file from the file menu. You can also drag and drop anywhere in the app.
 
-## [1.2.0] - 2026-04-07
+## [1.2.1] - 2026-04-07
 
 ### Fixed
 **Window Management:** Avoids changing the config dialog while awaiting a merge or export to avoid a race condition.
