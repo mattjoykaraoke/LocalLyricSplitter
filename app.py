@@ -54,7 +54,11 @@ class AboutDialog(ctk.CTkToplevel):
         self.title("About Local Lyric Splitter")
         self.geometry("450x520")
         self.resizable(False, False)
-        self.attributes("-topmost", True)
+
+        # Professional Layering Fix
+        self.transient(parent)
+        self.grab_set()
+
         self.grid_columnconfigure(0, weight=1)
 
         display_size = (300, 200)
@@ -129,7 +133,11 @@ class WordInputDialog(ctk.CTkToplevel):
         self.title(title)
         self.geometry("400x220")
         self.resizable(False, False)
-        self.attributes("-topmost", True)
+
+        # Professional Layering Fix
+        self.transient(parent)
+        self.grab_set()
+
         self.result = None
 
         ctk.CTkLabel(self, text=text, font=("Arial", 14)).pack(pady=(25, 10))
@@ -164,7 +172,11 @@ class ConfigEditor(ctk.CTkToplevel):
         self.parent = parent
         self.title("Configuration Editor")
         self.geometry("620x600")
-        self.attributes("-topmost", True)
+
+        # Proper Sandwich Layering Fix
+        self.transient(parent)
+        self.grab_set()
+
         self.grid_columnconfigure((0, 1), weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -218,12 +230,21 @@ class ConfigEditor(ctk.CTkToplevel):
 
     def export_config(self):
         source_path = self.parent.config_path
+
+        # 1. Disable the Editor so it stays layered but unclickable
+        self.attributes("-disabled", True)
+
         dest_path = filedialog.asksaveasfilename(
             title="Export Your Lyric Library",
             initialfile="LLS_My_Library.json",
             filetypes=[("JSON File", "*.json")],
             defaultextension=".json",
         )
+
+        # 2. Re-enable and regain focus
+        self.attributes("-disabled", False)
+        self.focus_force()
+
         if dest_path:
             try:
                 shutil.copy(source_path, dest_path)
@@ -232,9 +253,18 @@ class ConfigEditor(ctk.CTkToplevel):
                 messagebox.showerror("Export Failed", f"Could not export file: {e}")
 
     def import_config(self):
+        # 1. Disable the Editor to prevent clicking during dialog
+        self.attributes("-disabled", True)
+
+        # 2. Open the file browser (ONLY ONCE)
         file_path = filedialog.askopenfilename(
             title="Select Library to Import", filetypes=[("JSON File", "*.json")]
         )
+
+        # 3. Re-enable and regain focus
+        self.attributes("-disabled", False)
+        self.focus_force()
+
         if not file_path:
             return
 
@@ -242,7 +272,6 @@ class ConfigEditor(ctk.CTkToplevel):
             with open(file_path, "r") as f:
                 new_data = json.load(f)
 
-            # Merge logic: Add new, don't overwrite user's custom existing ones
             new_trips = new_data.get("trip_up_words", {})
             new_false = new_data.get("false_positives", [])
 
@@ -258,7 +287,7 @@ class ConfigEditor(ctk.CTkToplevel):
                     merged_count += 1
 
             self.parent.save_config_to_disk()
-            self.load_into_editor()  # Refresh view
+            self.load_into_editor()
             messagebox.showinfo(
                 "Import Success",
                 f"Merged {merged_count} new entries into your library!",
@@ -307,7 +336,6 @@ class StreamlinedLyricApp(ctk.CTk):
         self.geometry("1000x800")
         ctk.set_appearance_mode("dark")
 
-        # Define the rules for each language profile
         self.lang_profiles = {
             " [EN] English": {"pyphen": "en_US", "threshold": 5},
             " [ES] Spanish": {"pyphen": "es", "threshold": 6},
@@ -316,16 +344,13 @@ class StreamlinedLyricApp(ctk.CTk):
             " [RU] Russian": {"pyphen": "ru_RU", "threshold": 7},
         }
         self.current_lang_name = " [EN] English"
-        # This dynamically sets it to based on the language entry in your dict
         self.highlight_threshold = self.lang_profiles[self.current_lang_name][
             "threshold"
         ]
 
-        # Header frame for the top-right dropdown
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.header_frame.pack(fill="x", padx=20, pady=(10, 0))
 
-        # Language selection
         self.lang_options = list(self.lang_profiles.keys())
 
         self.lang_menu = ctk.CTkOptionMenu(
@@ -336,16 +361,12 @@ class StreamlinedLyricApp(ctk.CTk):
             font=("Segoe UI", 14),
         )
         self.lang_menu.pack(side="right")
-
-        # This must be on its own line AFTER the menu is created
         self.lang_menu.set(self.current_lang_name)
 
-        # Build the textbox
         self.txt = ctk.CTkTextbox(self, font=("Consolas", 18), undo=False)
         self.txt.pack(fill="both", expand=True, padx=20, pady=(20, 10))
         self.txt.tag_config("missed", background="#5c4000", foreground="white")
 
-        # Right click context menu
         self.context_menu = Menu(
             self,
             tearoff=0,
@@ -397,7 +418,7 @@ class StreamlinedLyricApp(ctk.CTk):
             self.control_bar,
             text="Sanitize",
             command=self.sanitize_lyrics,
-            fg_color="#721c24",  # A different color to show it's a "destructive" action
+            fg_color="#721c24",
             width=btn_w,
         ).pack(side="left", padx=5)
         ctk.CTkButton(
@@ -483,10 +504,7 @@ class StreamlinedLyricApp(ctk.CTk):
         word = self.get_word_at_cursor()
         if not word:
             return
-
-        # Clean the word BEFORE showing the dialog so it looks right
         clean_display = word.replace("/", "").replace("_", "")
-
         dialog = WordInputDialog(
             self,
             title="New Trip-Up",
@@ -508,9 +526,7 @@ class StreamlinedLyricApp(ctk.CTk):
         AboutDialog(self)
 
     def take_snapshot(self, event=None):
-        # If event is None (from a button), we ALWAYS take a snapshot.
-        # If event is a keypress, we only take it for / or _
-        if event is None or (event.char in ["/", "_"]):
+        if event is None or (hasattr(event, "char") and event.char in ["/", "_"]):
             self.history.append(self.txt.get("1.0", "end-1c"))
 
     def on_key_release(self, event):
@@ -565,48 +581,32 @@ class StreamlinedLyricApp(ctk.CTk):
         scroll = self.txt.yview()[0]
         self.history.append(self.txt.get("1.0", "end-1c"))
         content = self.txt.get("1.0", "end-1c")
-
         parts = re.split(r"([^a-zA-Z0-9'/_-]+)", content)
         processed = []
-
         for p in parts:
             low = p.lower()
-
-            # 1. Check if the ENTIRE chunk is a Trip-Up (e.g., if you added "self-starter")
             if low in self.trip_ups:
                 res = self.trip_ups[low]
                 processed.append(res.capitalize() if p[0].isupper() else res)
-
-            # 2. Skip whitespace, punctuation, or words that already have slashes/underscores
             elif (
                 not p.strip() or not any(c.isalnum() for c in p) or "/" in p or "_" in p
             ):
                 processed.append(p)
-
-            # 3. Handle Hyphenated words safely
             elif "-" in p:
                 sub_words = p.split("-")
                 hyphenated_chunks = []
-
                 for sub in sub_words:
                     sub_low = sub.lower()
-
-                    # THE FIX: Check the dictionary for the sub-word FIRST
                     if sub_low in self.trip_ups:
                         res = self.trip_ups[sub_low]
                         hyphenated_chunks.append(
                             res.capitalize() if sub and sub[0].isupper() else res
                         )
                     else:
-                        # Fallback to Pyphen
                         hyphenated_chunks.append(self.dic.inserted(sub, hyphen="/"))
-
                 processed.append("-/".join(hyphenated_chunks))
-
-            # 4. Standard Pyphen Auto-Split
             else:
                 processed.append(self.dic.inserted(p, hyphen="/"))
-
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", "".join(processed))
         self.txt.yview_moveto(scroll)
@@ -631,45 +631,28 @@ class StreamlinedLyricApp(ctk.CTk):
     def sanitize_lyrics(self):
         """Removes Genius metadata, ads, and structural tags while preserving stanza spacing."""
         self.take_snapshot(None)
-
         content = self.txt.get("1.0", "end-1c")
         lines = content.splitlines()
         cleaned_lines = []
         skip_count = 0
-
         for i, line in enumerate(lines):
             stripped = line.strip()
-
-            # 1. Skip garbage blocks
             if skip_count > 0:
                 skip_count -= 1
                 continue
-
-            # 2. Identify 9-line "See [Artist] Live" ad
             if re.match(r"^See .* Live$", stripped):
                 skip_count = 8
                 continue
-
-            # 3. Identify 7-line "You might also like" ad
             if "You might also like" in stripped:
                 skip_count = 6
                 continue
-
-            # 4. Remove [Square Bracket] tags
-            # We replace the tag with an empty string.
             line_no_tags = re.sub(r"\[.*?\]", "", line).strip()
-
-            # 5. Spacing Logic
             if line_no_tags == "":
-                # Only add a blank line if the previous line wasn't already blank
                 if cleaned_lines and cleaned_lines[-1] != "":
                     cleaned_lines.append("")
             else:
                 cleaned_lines.append(line_no_tags)
-
-        # Final cleanup: Remove trailing/leading blank lines if they exist
         final_text = "\n".join(cleaned_lines).strip()
-
         self.txt.delete("1.0", "end")
         self.txt.insert("1.0", final_text)
         self.refresh_highlights()
