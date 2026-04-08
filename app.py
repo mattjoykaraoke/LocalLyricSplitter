@@ -11,7 +11,7 @@ import customtkinter as ctk
 import pyphen
 from PIL import Image
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 
 def get_config_path():
@@ -395,6 +395,13 @@ class StreamlinedLyricApp(ctk.CTk):
         ).pack(side="left", padx=5)
         ctk.CTkButton(
             self.control_bar,
+            text="Sanitize",
+            command=self.sanitize_lyrics,
+            fg_color="#721c24",  # A different color to show it's a "destructive" action
+            width=btn_w,
+        ).pack(side="left", padx=5)
+        ctk.CTkButton(
+            self.control_bar,
             text="Config",
             command=self.open_editor,
             fg_color="#444",
@@ -500,9 +507,11 @@ class StreamlinedLyricApp(ctk.CTk):
     def open_about(self):
         AboutDialog(self)
 
-    def take_snapshot(self, event):
-        if event.char in ["/", "_"]:
-            self.pre_keypress_snapshot = self.txt.get("1.0", "end-1c")
+    def take_snapshot(self, event=None):
+        # If event is None (from a button), we ALWAYS take a snapshot.
+        # If event is a keypress, we only take it for / or _
+        if event is None or (event.char in ["/", "_"]):
+            self.history.append(self.txt.get("1.0", "end-1c"))
 
     def on_key_release(self, event):
         if event.char in ["/", "_"]:
@@ -618,6 +627,52 @@ class StreamlinedLyricApp(ctk.CTk):
             self.after(
                 1000, lambda: btn.configure(text="Copy Lyrics", fg_color="#1f538d")
             )
+
+    def sanitize_lyrics(self):
+        """Removes Genius metadata, ads, and structural tags while preserving stanza spacing."""
+        self.take_snapshot(None)
+
+        content = self.txt.get("1.0", "end-1c")
+        lines = content.splitlines()
+        cleaned_lines = []
+        skip_count = 0
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+
+            # 1. Skip garbage blocks
+            if skip_count > 0:
+                skip_count -= 1
+                continue
+
+            # 2. Identify 9-line "See [Artist] Live" ad
+            if re.match(r"^See .* Live$", stripped):
+                skip_count = 8
+                continue
+
+            # 3. Identify 7-line "You might also like" ad
+            if "You might also like" in stripped:
+                skip_count = 6
+                continue
+
+            # 4. Remove [Square Bracket] tags
+            # We replace the tag with an empty string.
+            line_no_tags = re.sub(r"\[.*?\]", "", line).strip()
+
+            # 5. Spacing Logic
+            if line_no_tags == "":
+                # Only add a blank line if the previous line wasn't already blank
+                if cleaned_lines and cleaned_lines[-1] != "":
+                    cleaned_lines.append("")
+            else:
+                cleaned_lines.append(line_no_tags)
+
+        # Final cleanup: Remove trailing/leading blank lines if they exist
+        final_text = "\n".join(cleaned_lines).strip()
+
+        self.txt.delete("1.0", "end")
+        self.txt.insert("1.0", final_text)
+        self.refresh_highlights()
 
     def undo(self, event=None):
         if self.history:

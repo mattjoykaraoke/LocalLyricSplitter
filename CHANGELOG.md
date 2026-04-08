@@ -2,6 +2,15 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [1.2.0] - 2026-04-07
+
+### Added
+**Ad and Tag Removal:** Specific repetetive phrases like "See...Live" (9 lines) and "You might also like" (7 lines) patterns from Genius are removed entirely when you click `Sanitize`. `[Verse]`, `[Chorus]`, etc. are also removed.
+
+**Spacing Protection:** `Sanitize` leaves exactly one blank line between stanzas, even if the source text had messy double-spacing or no spacing at all (if there were `[Tags]`).
+
+**History Preservation:** The `Undo` button acts as a safety net if a "Sanitize" goes wrong.
+
 ## [1.1.0] - 2026-04-07
 
 ### Added
