@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.1.0] - 2026-04-08
+
+### Added
+**Lyrics Fetching:** Lyrics can be automatically pulled from Genius, AZLyrics, or Google Search. When lyrics are pulled, the sanitizer runs automatically, as well. This is intentional for future automated workflows.
+
 ## [2.0.0] - 2026-04-07
 
 ### Added

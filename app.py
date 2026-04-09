@@ -3,11 +3,14 @@ import os
 import re
 import shutil
 import sys
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 import pyphen
-from PySide6.QtCore import QSize, Qt, QTimer
+import requests
+from bs4 import BeautifulSoup
+from PySide6.QtCore import QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -38,7 +41,111 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
+
+# --- NETWORK WORKER ---
+
+
+class LyricFetchWorker(QThread):
+    """Threaded worker to prevent UI freezing during network requests."""
+
+    success = Signal(str)
+    failure = Signal(str)
+
+    def __init__(self, artist, title):
+        super().__init__()
+        self.artist = artist.strip()
+        self.title = title.strip()
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+    def run(self):
+        try:
+            # 1. Genius Search & Scrape
+            lyrics = self.fetch_genius()
+            if lyrics:
+                self.success.emit(lyrics)
+                return
+
+            # 2. AZLyrics Backup
+            lyrics = self.fetch_azlyrics()
+            if lyrics:
+                self.success.emit(lyrics)
+                return
+
+            # 3. LRCLIB Open API Backup (Highly reliable for popular songs)
+            lyrics = self.fetch_lrclib_fallback()
+            if lyrics:
+                self.success.emit(lyrics)
+                return
+
+            self.failure.emit("Lyrics not found on Genius, AZLyrics, or LRCLIB.")
+        except Exception as e:
+            self.failure.emit(f"Connection error: {str(e)}")
+
+    def fetch_genius(self):
+        try:
+            query = f"{self.artist} {self.title}".replace(" ", "%20")
+            url = f"https://genius.com/api/search/multi?q={query}"
+            response = requests.get(url, headers=self.headers, timeout=10)
+            data = response.json()
+
+            for section in data["response"]["sections"]:
+                if section["type"] == "top_hit" and section["hits"]:
+                    song_url = section["hits"][0]["result"]["url"]
+                    page = requests.get(song_url, headers=self.headers, timeout=10)
+                    soup = BeautifulSoup(page.text, "html.parser")
+
+                    lyrics_divs = soup.select('div[class^="Lyrics__Container"]')
+                    if lyrics_divs:
+                        return "\n".join(
+                            [d.get_text(separator="\n") for d in lyrics_divs]
+                        )
+            return None
+        except Exception:
+            return None
+
+    def fetch_azlyrics(self):
+        try:
+            clean_artist = re.sub(r"[^a-z0-9]", "", self.artist.lower())
+            clean_title = re.sub(r"[^a-z0-9]", "", self.title.lower())
+            url = f"https://www.azlyrics.com/lyrics/{clean_artist}/{clean_title}.html"
+
+            response = requests.get(url, headers=self.headers, timeout=10)
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            comment = soup.find(
+                string=lambda text: (
+                    "Usage of azlyrics.com content" in text if text else False
+                )
+            )
+            if comment:
+                return comment.find_next("div").get_text().strip()
+            return None
+        except Exception:
+            return None
+
+    def fetch_lrclib_fallback(self):
+        """Replaces Google scrape with a robust, free open-source lyrics API."""
+        try:
+            query = f"{self.artist} {self.title}"
+            url = f"https://lrclib.net/api/search?q={urllib.parse.quote(query)}"
+
+            response = requests.get(url, headers=self.headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    # Grab the plain lyrics from the first result
+                    lyrics = data[0].get("plainLyrics")
+                    if lyrics:
+                        return lyrics
+            return None
+        except Exception:
+            return None
+
+
+# --- CORE APPLICATION ---
 
 
 def get_config_path():
@@ -487,7 +594,29 @@ class StreamlinedLyricApp(QMainWindow):
         self.main_layout = QVBoxLayout(central_widget)
 
         self.header_frame = QHBoxLayout()
+
+        # --- NEW SEARCH UI INTEGRATED HERE ---
+        self.artist_input = QLineEdit()
+        self.artist_input.setPlaceholderText("Artist Name...")
+        self.artist_input.setFixedWidth(200)
+
+        self.song_input = QLineEdit()
+        self.song_input.setPlaceholderText("Song Title...")
+        self.song_input.setFixedWidth(250)
+
+        self.fetch_btn = QPushButton("Fetch Lyrics")
+        self.fetch_btn.setStyleSheet(
+            "background-color: #1f538d; color: white; font-weight: bold; padding: 4px 10px;"
+        )
+        self.fetch_btn.clicked.connect(self.start_lyric_fetch)
+
+        self.header_frame.addWidget(QLabel("<b>Fetch:</b>"))
+        self.header_frame.addWidget(self.artist_input)
+        self.header_frame.addWidget(self.song_input)
+        self.header_frame.addWidget(self.fetch_btn)
+
         self.header_frame.addStretch()
+        # -------------------------------------
 
         self.lang_menu = QComboBox()
         self.lang_menu.setIconSize(QSize(20, 15))
@@ -535,6 +664,39 @@ class StreamlinedLyricApp(QMainWindow):
         self.add_control_btn("Undo", "#721c24", self.undo)
 
         self.main_layout.addLayout(self.control_bar)
+
+    # --- NEW FETCH METHODS ---
+    def start_lyric_fetch(self):
+        artist = self.artist_input.text()
+        song = self.song_input.text()
+        if not artist or not song:
+            QMessageBox.warning(
+                self, "Input Required", "Please enter both Artist and Song Title."
+            )
+            return
+
+        self.fetch_btn.setEnabled(False)
+        self.fetch_btn.setText("Searching...")
+
+        self.worker = LyricFetchWorker(artist, song)
+        self.worker.success.connect(self.on_fetch_success)
+        self.worker.failure.connect(self.on_fetch_error)
+        self.worker.start()
+
+    def on_fetch_success(self, lyrics):
+        self.fetch_btn.setEnabled(True)
+        self.fetch_btn.setText("Fetch Lyrics")
+        self.take_snapshot()
+        self.txt.setPlainText(lyrics)
+        self.sanitize_lyrics()  # Auto-sanitize triggers automatically
+        self.refresh_highlights()
+
+    def on_fetch_error(self, message):
+        self.fetch_btn.setEnabled(True)
+        self.fetch_btn.setText("Fetch Lyrics")
+        QMessageBox.warning(self, "Not Found", message)
+
+    # -------------------------
 
     def get_flag_icon(self, country_code):
         config_dir = os.path.dirname(self.config_path)
@@ -879,27 +1041,79 @@ class StreamlinedLyricApp(QMainWindow):
         self.take_snapshot(None)
         content = self.txt.toPlainText()
         lines = content.splitlines()
+
+        # 1. Pre-pass: If we find an early bracket (e.g., [Verse 1]), wipe out the top block completely.
+        first_bracket_idx = -1
+        for i, line in enumerate(lines):
+            if line.strip().startswith("["):
+                first_bracket_idx = i
+                break
+
+        if first_bracket_idx > 0:
+            header_text = "\n".join(lines[:first_bracket_idx]).lower()
+            # Verify it's a metadata block before deleting
+            if (
+                "contributor" in header_text
+                or "lyrics" in header_text
+                or "read more" in header_text
+            ):
+                lines = lines[first_bracket_idx:]
+
+        # 2. Line-by-Line cleanup
         cleaned_lines = []
         skip_count = 0
+        skipping_blurb = False
 
-        # Removed unused 'i' variable from enumerate
         for line in lines:
             stripped = line.strip()
+
+            # Handle dynamic blurb skipping (e.g., descriptions before the lyrics)
+            if skipping_blurb:
+                if (
+                    stripped.lower() == "read more"
+                    or stripped.startswith("[")
+                    or stripped == ""
+                ):
+                    skipping_blurb = False
+                    if stripped.lower() == "read more":
+                        continue
+                if skipping_blurb:
+                    continue
+
             if skip_count > 0:
                 skip_count -= 1
                 continue
-            if re.match(r"^See .* Live$", stripped):
+
+            # Triggers to start skipping lines
+            if re.match(r"^\d+\s*Contributors?$", stripped, re.IGNORECASE):
+                skipping_blurb = True
+                continue
+
+            if re.match(r"^See .* Live$", stripped, re.IGNORECASE):
                 skip_count = 8
                 continue
+
             if "You might also like" in stripped:
                 skip_count = 6
                 continue
+
+            if stripped.lower() == "read more":
+                continue
+
+            # Catch stray "Song Title Lyrics" right at the top
+            if stripped.lower().endswith("lyrics") and len(cleaned_lines) == 0:
+                continue
+
+            # Strip brackets and clean
             line_no_tags = re.sub(r"\[.*?\]", "", line).strip()
+
+            # Prevent multiple stacked blank lines
             if line_no_tags == "":
                 if cleaned_lines and cleaned_lines[-1] != "":
                     cleaned_lines.append("")
             else:
                 cleaned_lines.append(line_no_tags)
+
         final_text = "\n".join(cleaned_lines).strip()
         self.txt.setPlainText(final_text)
         self.refresh_highlights()
