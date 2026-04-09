@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -513,7 +514,7 @@ class LyricTextEdit(QTextEdit):
 
 
 class StreamlinedLyricApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, cli_args=None):
         super().__init__()
 
         if getattr(sys, "frozen", False):
@@ -535,6 +536,17 @@ class StreamlinedLyricApp(QMainWindow):
         self.dic = pyphen.Pyphen(lang="en_US")
         self.history = []
         self.pre_keypress_snapshot = ""
+
+        # CLI Arguments initialization
+        self.cli_args = cli_args or argparse.Namespace(
+            artist="", song="", audio="", out="", auto=False, silent=False
+        )
+        if self.cli_args.silent:
+            self.cli_args.auto = True  # Silent mode must automatically process and exit to prevent ghost processes
+
+        self.is_auto_processing = False
+        self.audio_path = self.cli_args.audio
+        self.out_dir = self.cli_args.out
 
         self.setWindowTitle(f"Local Lyric Splitter v{APP_VERSION}")
         self.resize(1000, 800)
@@ -599,10 +611,14 @@ class StreamlinedLyricApp(QMainWindow):
         self.artist_input = QLineEdit()
         self.artist_input.setPlaceholderText("Artist Name...")
         self.artist_input.setFixedWidth(200)
+        if self.cli_args.artist:
+            self.artist_input.setText(self.cli_args.artist)
 
         self.song_input = QLineEdit()
         self.song_input.setPlaceholderText("Song Title...")
         self.song_input.setFixedWidth(250)
+        if self.cli_args.song:
+            self.song_input.setText(self.cli_args.song)
 
         self.fetch_btn = QPushButton("Fetch Lyrics")
         self.fetch_btn.setStyleSheet(
@@ -610,10 +626,17 @@ class StreamlinedLyricApp(QMainWindow):
         )
         self.fetch_btn.clicked.connect(self.start_lyric_fetch)
 
+        self.auto_process_btn = QPushButton("Auto-Process")
+        self.auto_process_btn.setStyleSheet(
+            "background-color: #2c5d3f; color: white; font-weight: bold; padding: 4px 10px;"
+        )
+        self.auto_process_btn.clicked.connect(self.start_auto_process)
+
         self.header_frame.addWidget(QLabel("<b>Fetch:</b>"))
         self.header_frame.addWidget(self.artist_input)
         self.header_frame.addWidget(self.song_input)
         self.header_frame.addWidget(self.fetch_btn)
+        self.header_frame.addWidget(self.auto_process_btn)
 
         self.header_frame.addStretch()
         # -------------------------------------
@@ -665,14 +688,21 @@ class StreamlinedLyricApp(QMainWindow):
 
         self.main_layout.addLayout(self.control_bar)
 
+        # Start auto-process immediately if triggered from CLI
+        if self.cli_args.auto:
+            QTimer.singleShot(500, self.start_auto_process)
+
     # --- NEW FETCH METHODS ---
     def start_lyric_fetch(self):
         artist = self.artist_input.text()
         song = self.song_input.text()
         if not artist or not song:
-            QMessageBox.warning(
-                self, "Input Required", "Please enter both Artist and Song Title."
-            )
+            if not self.cli_args.silent:
+                QMessageBox.warning(
+                    self, "Input Required", "Please enter both Artist and Song Title."
+                )
+            elif self.cli_args.auto:
+                QApplication.quit()
             return
 
         self.fetch_btn.setEnabled(False)
@@ -691,10 +721,166 @@ class StreamlinedLyricApp(QMainWindow):
         self.sanitize_lyrics()  # Auto-sanitize triggers automatically
         self.refresh_highlights()
 
+        # If triggered by the "Auto-Process" button or CLI flag
+        if getattr(self, "is_auto_processing", False):
+            self.auto_split()
+            self.export_auto_files()
+            self.is_auto_processing = False
+
     def on_fetch_error(self, message):
         self.fetch_btn.setEnabled(True)
         self.fetch_btn.setText("Fetch Lyrics")
-        QMessageBox.warning(self, "Not Found", message)
+        self.is_auto_processing = False
+        if not self.cli_args.silent:
+            QMessageBox.warning(self, "Not Found", message)
+
+        if self.cli_args.auto:
+            QApplication.quit()
+
+    def start_auto_process(self):
+        artist = self.artist_input.text()
+        song = self.song_input.text()
+        if not artist or not song:
+            if not self.cli_args.silent:
+                QMessageBox.warning(
+                    self, "Input Required", "Please enter both Artist and Song Title."
+                )
+            if self.cli_args.auto:
+                QApplication.quit()
+            return
+
+        if not self.audio_path:
+            if self.cli_args.silent:
+                if self.cli_args.auto:
+                    QApplication.quit()
+                return
+            audio_file, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Audio File for Sync",
+                "",
+                "Audio Files (*.mp3 *.wav *.ogg *.flac);;All Files (*.*)",
+            )
+            if not audio_file:
+                return  # User cancelled
+            self.audio_path = audio_file
+
+        if not self.out_dir:
+            if self.cli_args.silent:
+                if self.cli_args.auto:
+                    QApplication.quit()
+                return
+            out_directory = QFileDialog.getExistingDirectory(
+                self, "Select Save Location"
+            )
+            if not out_directory:
+                return  # User cancelled
+            self.out_dir = out_directory
+
+        self.is_auto_processing = True
+        self.start_lyric_fetch()
+
+    def generate_kbp_content(self, title, artist, audio_path, lyrics):
+        """Generates the Karaoke Builder Studio Unsynchronized File structure"""
+        return f"""-----------------------------
+KARAOKE BUILDER STUDIO
+www.KaraokeBuilder.com
+
+-----------------------------
+HEADERV2
+
+'--- Template Information ---
+
+'Palette Colours (0-15)
+  055,FFF,000,E70,940,CFF,033,0DD,077,FCF,303,F3F,818,000,FFF,000
+
+'Styles (00-19)
+'  Number,Name
+'  Colour: Text,Outline,Text Wipe,Outline Wipe
+'  Font  : Name,Size,Style,Charset
+'  Other : Outline*4,Shadow*2,Wiping,Uppercase
+
+  Style00,Default,1,2,3,4
+    Arial,12,B,0
+    2,2,2,2,0,0,0,L
+
+  Style01,Male,5,6,7,8
+    Arial,12,B,0
+    2,2,2,2,0,0,0,L
+
+  Style02,Female,9,10,11,12
+    Arial,12,B,0
+    2,2,2,2,0,0,0,L
+
+  Style03,Other,4,8,12,14
+    Arial,12,B,0
+    2,2,2,2,0,0,0,L
+
+  StyleEnd
+
+'Margins : L,R,T,Line Spacing
+  2,2,7,12
+
+'Other: Border Colour,Detail Level
+  0,2
+
+'--- Track Information ---
+
+Status    0
+Title     {title}
+Artist    {artist}
+Audio     {audio_path}
+BuildFile
+Intro
+Outro
+
+Comments  Created with Karaoke Builder Studio
+          www.KaraokeBuilder.com
+
+-----------------------------
+LYRICSV2
+{lyrics}"""
+
+    def export_auto_files(self):
+        artist = self.artist_input.text().strip()
+        song = self.song_input.text().strip()
+
+        # Strip illegal characters from filenames
+        clean_name = re.sub(r'[\\\\/*?:"<>|]', "", f"{artist} - {song}")
+
+        txt_path = Path(self.out_dir) / f"{clean_name}.txt"
+        kbp_path = Path(self.out_dir) / f"{clean_name}.kbp"
+
+        content = self.txt.toPlainText()
+
+        try:
+            # Save the raw .txt file
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            # Save the formatted .kbp file
+            kbp_content = self.generate_kbp_content(
+                song, artist, self.audio_path, content
+            )
+            # UTF-8-SIG saves with BOM, which is best for ensuring Karaoke Builder reads foreign characters properly
+            with open(kbp_path, "w", encoding="utf-8-sig") as f:
+                f.write(kbp_content)
+
+            if self.cli_args.auto:
+                QApplication.quit()  # Seamlessly exit if triggered by external suite
+            elif not self.cli_args.silent:
+                QMessageBox.information(
+                    self,
+                    "Auto-Process Complete",
+                    f"Successfully exported:\n{txt_path}\n{kbp_path}",
+                )
+
+        except Exception as e:
+            if not self.cli_args.silent:
+                QMessageBox.critical(
+                    self, "Export Failed", f"Failed to save files: {e}"
+                )
+            if self.cli_args.auto:
+                QApplication.quit()
 
     # -------------------------
 
@@ -1127,7 +1313,32 @@ class StreamlinedLyricApp(QMainWindow):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Local Lyric Splitter Engine")
+    parser.add_argument("--artist", type=str, help="Artist name", default="")
+    parser.add_argument("--song", type=str, help="Song title", default="")
+    parser.add_argument(
+        "--audio", type=str, help="Absolute path to the audio file for KBP", default=""
+    )
+    parser.add_argument(
+        "--out",
+        type=str,
+        help="Directory to save the exported TXT and KBP files",
+        default="",
+    )
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Run fetch/split/save automatically and then close",
+    )
+    parser.add_argument(
+        "--silent",
+        action="store_true",
+        help="Run silently without showing the UI or message boxes",
+    )
+    args, unknown = parser.parse_known_args()
+
     app = QApplication(sys.argv)
-    window = StreamlinedLyricApp()
-    window.show()
+    window = StreamlinedLyricApp(cli_args=args)
+    if not args.silent:
+        window.show()
     sys.exit(app.exec())
