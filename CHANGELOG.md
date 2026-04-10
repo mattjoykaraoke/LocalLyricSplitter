@@ -2,6 +2,19 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.2.0] - 2026-04-08
+
+### Added
+**CLI:** You can pass commands to the `.exe` such as:
+"--artist", artist, 
+"--song", song, 
+"--audio", audio_path, 
+"--out", export_dir,
+"--silent"
+
+### Changed
+**Sanitize Function:** Now includes changing apostrophes to a standard `'` mark. I suggest running sanitize before doing anything else to make life easier and I moved the button to suggest this, as well.
+
 ## [2.1.0] - 2026-04-08
 
 ### Added

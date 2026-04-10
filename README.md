@@ -56,6 +56,7 @@ To maintain the speed and stability of the word-syncing engine, please keep the 
 * **Syllable Consistency:** The "Live-Sync" logic works by matching the base word. If you change the *number* of syllables for the same word in different places, you should write them out phonetically or as extended syllables for the sync to remain accurate.
     * *Example:* If you have **"Hello"** (2 syllables) and **"Hello-o-o"** (4 syllables), write them differently so the app doesn't try to force the 2-syllable split onto the 4-syllable version.
 * **Non-Alphanumeric Characters:** Symbols attached directly to words (like parentheses or complex punctuation) may occasionally interfere with the "Whole Word" highlighting logic.
+* **Showtunes:** Due to the lyric fetching logic, you need to really specify the artist of a song and not the name of a show because it will just fail in any number of ways. You can still just find it manually and enter it though. Maybe in the future I'll add some kind of showtune specific functionality.
 
 __________________________________________________________________________________________
 

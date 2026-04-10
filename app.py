@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.1.0"
 
 # --- NETWORK WORKER ---
 
@@ -50,7 +50,7 @@ APP_VERSION = "2.2.0"
 class LyricFetchWorker(QThread):
     """Threaded worker to prevent UI freezing during network requests."""
 
-    success = Signal(str)
+    success = Signal(str, str)  # Added second string for the source name
     failure = Signal(str)
 
     def __init__(self, artist, title):
@@ -66,19 +66,19 @@ class LyricFetchWorker(QThread):
             # 1. Genius Search & Scrape
             lyrics = self.fetch_genius()
             if lyrics:
-                self.success.emit(lyrics)
+                self.success.emit(lyrics, "Genius")
                 return
 
             # 2. AZLyrics Backup
             lyrics = self.fetch_azlyrics()
             if lyrics:
-                self.success.emit(lyrics)
+                self.success.emit(lyrics, "AZLyrics")
                 return
 
             # 3. LRCLIB Open API Backup (Highly reliable for popular songs)
             lyrics = self.fetch_lrclib_fallback()
             if lyrics:
-                self.success.emit(lyrics)
+                self.success.emit(lyrics, "LRCLIB")
                 return
 
             self.failure.emit("Lyrics not found on Genius, AZLyrics, or LRCLIB.")
@@ -632,11 +632,17 @@ class StreamlinedLyricApp(QMainWindow):
         )
         self.auto_process_btn.clicked.connect(self.start_auto_process)
 
+        self.source_label = QLabel("")
+        self.source_label.setStyleSheet(
+            "color: #aaaaaa; font-style: italic; padding-left: 10px;"
+        )
+
         self.header_frame.addWidget(QLabel("<b>Fetch:</b>"))
         self.header_frame.addWidget(self.artist_input)
         self.header_frame.addWidget(self.song_input)
         self.header_frame.addWidget(self.fetch_btn)
         self.header_frame.addWidget(self.auto_process_btn)
+        self.header_frame.addWidget(self.source_label)
 
         self.header_frame.addStretch()
         # -------------------------------------
@@ -668,6 +674,7 @@ class StreamlinedLyricApp(QMainWindow):
         self.highlight_var.stateChanged.connect(self.refresh_highlights)
         self.control_bar.addWidget(self.highlight_var)
 
+        self.add_control_btn("Sanitize", "#721c24", self.sanitize_lyrics)
         self.add_control_btn("Auto-Split", "#2c5d3f", self.auto_split)
 
         self.copy_btn = QPushButton("Copy Lyrics")
@@ -678,7 +685,6 @@ class StreamlinedLyricApp(QMainWindow):
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
         self.control_bar.addWidget(self.copy_btn)
 
-        self.add_control_btn("Sanitize", "#721c24", self.sanitize_lyrics)
         self.add_control_btn("Config", "#444", self.open_editor)
         self.add_control_btn("About", "#444", self.open_about)
 
@@ -705,6 +711,7 @@ class StreamlinedLyricApp(QMainWindow):
                 QApplication.quit()
             return
 
+        self.source_label.setText("")  # Clear previous source text
         self.fetch_btn.setEnabled(False)
         self.fetch_btn.setText("Searching...")
 
@@ -713,9 +720,10 @@ class StreamlinedLyricApp(QMainWindow):
         self.worker.failure.connect(self.on_fetch_error)
         self.worker.start()
 
-    def on_fetch_success(self, lyrics):
+    def on_fetch_success(self, lyrics, source):
         self.fetch_btn.setEnabled(True)
         self.fetch_btn.setText("Fetch Lyrics")
+        self.source_label.setText(f"Source: {source}")
         self.take_snapshot()
         self.txt.setPlainText(lyrics)
         self.sanitize_lyrics()  # Auto-sanitize triggers automatically
@@ -730,6 +738,7 @@ class StreamlinedLyricApp(QMainWindow):
     def on_fetch_error(self, message):
         self.fetch_btn.setEnabled(True)
         self.fetch_btn.setText("Fetch Lyrics")
+        self.source_label.setText("Source: None")
         self.is_auto_processing = False
         if not self.cli_args.silent:
             QMessageBox.warning(self, "Not Found", message)
@@ -1226,6 +1235,10 @@ LYRICSV2
         """Removes Genius metadata, ads, and structural tags while preserving stanza spacing."""
         self.take_snapshot(None)
         content = self.txt.toPlainText()
+
+        # Normalize curled apostrophes to straight ones to prevent dictionary matching issues
+        content = content.replace("’", "'").replace("‘", "'")
+
         lines = content.splitlines()
 
         # 1. Pre-pass: If we find an early bracket (e.g., [Verse 1]), wipe out the top block completely.
