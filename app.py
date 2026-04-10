@@ -539,7 +539,7 @@ class StreamlinedLyricApp(QMainWindow):
 
         # CLI Arguments initialization
         self.cli_args = cli_args or argparse.Namespace(
-            artist="", song="", audio="", out="", auto=False, silent=False
+            artist="", song="", audio="", out="", auto=False, silent=False, edit=""
         )
         if self.cli_args.silent:
             self.cli_args.auto = True  # Silent mode must automatically process and exit to prevent ghost processes
@@ -693,6 +693,18 @@ class StreamlinedLyricApp(QMainWindow):
         self.add_control_btn("Undo", "#721c24", self.undo)
 
         self.main_layout.addLayout(self.control_bar)
+
+        # Load file if passed via CLI or Drag and Drop on the executable
+        if getattr(self.cli_args, "edit", "") and os.path.exists(self.cli_args.edit):
+            try:
+                with open(self.cli_args.edit, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.take_snapshot()
+                self.txt.setPlainText(content)
+                self.refresh_highlights()
+            except Exception as e:
+                # Failing gracefully if there is a permission/read issue
+                pass
 
         # Start auto-process immediately if triggered from CLI
         if self.cli_args.auto:
@@ -1348,10 +1360,24 @@ if __name__ == "__main__":
         action="store_true",
         help="Run silently without showing the UI or message boxes",
     )
+    parser.add_argument(
+        "--edit",
+        type=str,
+        help="Absolute path to a .txt file to open on startup",
+        default="",
+    )
     args, unknown = parser.parse_known_args()
+
+    # Allow drag-and-drop onto the executable or "Open With..." from Windows Explorer
+    if not args.edit and unknown:
+        potential_file = unknown[0]
+        if os.path.exists(potential_file):
+            args.edit = potential_file
 
     app = QApplication(sys.argv)
     window = StreamlinedLyricApp(cli_args=args)
+
     if not args.silent:
         window.show()
+
     sys.exit(app.exec())
