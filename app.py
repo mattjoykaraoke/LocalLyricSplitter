@@ -582,6 +582,11 @@ class StreamlinedLyricApp(QMainWindow):
         save_action.triggered.connect(self.export_to_txt)
         self.file_menu.addAction(save_action)
 
+        # NEW ACTION: Export as .kbp
+        export_kbp_action = QAction("Export as .kbp", self)
+        export_kbp_action.triggered.connect(self.manual_export_kbp)
+        self.file_menu.addAction(export_kbp_action)
+
         self.file_menu.addSeparator()
 
         exit_action = QAction("Exit", self)
@@ -902,6 +907,53 @@ LYRICSV2
                 )
             if self.cli_args.auto:
                 QApplication.quit()
+
+    def manual_export_kbp(self):
+        """Manually trigger a KBP export by prompting for an audio file and save path."""
+        content = self.txt.toPlainText()
+        if not content.strip():
+            QMessageBox.warning(self, "Empty", "There are no lyrics to export!")
+            return
+
+        # 1. We need an audio file to link in the KBP header
+        audio_file, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Audio File for KBP Header",
+            "",
+            "Audio Files (*.mp3 *.wav *.ogg *.flac);;All Files (*.*)",
+        )
+        if not audio_file:
+            return
+
+        # 2. Ask where to save the KBP
+        artist = self.artist_input.text().strip()
+        song = self.song_input.text().strip()
+        default_name = (
+            f"{artist} - {song}.kbp" if artist and song else "unsynchronized.kbp"
+        )
+
+        kbp_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Unsynchronized KBP", default_name, "KBP Files (*.kbp)"
+        )
+
+        if kbp_path:
+            try:
+                # Reuse your existing KBP generator
+                kbp_content = self.generate_kbp_content(
+                    song if song else "Unknown Title",
+                    artist if artist else "Unknown Artist",
+                    audio_file,
+                    content,
+                )
+
+                with open(kbp_path, "w", encoding="utf-8-sig") as f:
+                    f.write(kbp_content)
+
+                QMessageBox.information(
+                    self, "Success", f"KBP exported to:\n{kbp_path}"
+                )
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not save KBP: {e}")
 
     # -------------------------
 
