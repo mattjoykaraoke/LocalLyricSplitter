@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.2.2] - 2026-04-11
+
+### Added
+**Export to .kbp:** You can now use the `file` menu to export to `.kbp` just select the audio file you're using and it will automatically put it together.
+
 ## [2.2.1] - 2026-04-11
 
 ### Added

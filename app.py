@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-APP_VERSION = "2.2.1"
+APP_VERSION = "2.2.2"
 
 # --- NETWORK WORKER ---
 
@@ -859,8 +859,8 @@ BuildFile
 Intro
 Outro
 
-Comments  Created with Karaoke Builder Studio
-          www.KaraokeBuilder.com
+Comments  Hacked by Matt Joy
+          github.com/mattjoykaraoke
 
 -----------------------------
 LYRICSV2
