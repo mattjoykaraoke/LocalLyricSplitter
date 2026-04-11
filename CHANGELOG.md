@@ -2,11 +2,12 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
-## [2.2.1] - 2026-04-09
+## [2.2.1] - 2026-04-11
 
 ### Added
 **CLI:** You can pass commands to the `.exe` such as:
 "--edit", path
+**Dictionary Update:** Dictionaries will be updated with each release and when they become availble. Download the latest dictonary directly and merge within the app or update the program and merge with the dictionary in the directory (may be different depending on your install location): `C:\Program Files (x86)\Local Lyric Splitter\_internal\config.json`
 
 ## [2.2.0] - 2026-04-08
 
