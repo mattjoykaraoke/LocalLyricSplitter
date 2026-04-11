@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.2.1"
 
 # --- NETWORK WORKER ---
 

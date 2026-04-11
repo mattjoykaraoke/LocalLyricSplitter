@@ -2,6 +2,12 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.2.1] - 2026-04-09
+
+### Added
+**CLI:** You can pass commands to the `.exe` such as:
+"--edit", path
+
 ## [2.2.0] - 2026-04-08
 
 ### Added
