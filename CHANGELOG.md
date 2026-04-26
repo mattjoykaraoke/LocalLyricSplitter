@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.3.0] - 2026-04-25
+
+### Added
+**Modularization:** The code is now broken into smaller, more manageable files.
+
 ## [2.2.2] - 2026-04-11
 
 ### Added
