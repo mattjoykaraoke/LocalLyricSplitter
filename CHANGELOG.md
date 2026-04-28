@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.3.1] - 2026-04-28
+
+### Fixed
+**Windows Path Format:** The issue with the path format on windows has been resolved.
+
 ## [2.3.0] - 2026-04-25
 
 ### Added

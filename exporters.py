@@ -3,6 +3,10 @@ from pathlib import Path
 
 def generate_kbp_content(title, artist, audio_path, lyrics):
     """Generates the Karaoke Builder Studio Unsynchronized File structure"""
+    # Ensure audio path uses Windows-style backslashes
+    if audio_path:
+        audio_path = str(audio_path).replace("/", "\\")
+        
     return f"""-----------------------------
 KARAOKE BUILDER STUDIO
 www.KaraokeBuilder.com
@@ -67,8 +71,20 @@ def export_auto_files(artist, song, out_dir, content, audio_path):
     artist = artist.strip()
     song = song.strip()
 
+    # Determine base name, falling back to 'unsynchronized' if both are empty
+    if artist and song:
+        base_name = f"{artist} - {song}"
+    elif artist:
+        base_name = artist
+    elif song:
+        base_name = song
+    else:
+        base_name = "unsynchronized"
+
     # Strip illegal characters from filenames
-    clean_name = re.sub(r'[\\\\/*?:"<>|]', "", f"{artist} - {song}")
+    clean_name = re.sub(r'[\\\\/*?:"<>|]', "", base_name)
+    if not clean_name.strip():
+        clean_name = "unsynchronized"
 
     txt_path = Path(out_dir) / f"{clean_name}.txt"
     kbp_path = Path(out_dir) / f"{clean_name}.kbp"
@@ -78,7 +94,7 @@ def export_auto_files(artist, song, out_dir, content, audio_path):
         f.write(content)
 
     # Save the formatted .kbp file
-    kbp_content = generate_kbp_content(song, artist, audio_path, content)
+    kbp_content = generate_kbp_content(song if song else "Unknown Title", artist if artist else "Unknown Artist", audio_path, content)
     
     # UTF-8-SIG saves with BOM, which is best for ensuring Karaoke Builder reads foreign characters properly
     with open(kbp_path, "w", encoding="utf-8-sig") as f:
