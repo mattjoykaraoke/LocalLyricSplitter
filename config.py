@@ -4,7 +4,7 @@ import shutil
 import sys
 from pathlib import Path
 
-APP_VERSION = "2.3.1"
+APP_VERSION = "2.3.2"
 
 def get_config_path():
     """

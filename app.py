@@ -604,11 +604,26 @@ class StreamlinedLyricApp(QMainWindow):
         about.exec()
 
     def take_snapshot(self, event=None):
-        if event is None or (hasattr(event, "text") and event.text() in ["/", "_"]):
-            self.history.append(self.txt.toPlainText())
+        is_trigger = False
+        if event is None:
+            is_trigger = True
+        elif hasattr(event, "text") and event.text() in ["/", "_"]:
+            is_trigger = True
+        elif hasattr(event, "key") and event.key() in [Qt.Key_Backspace, Qt.Key_Delete]:
+            is_trigger = True
+
+        if is_trigger:
+            self.pre_keypress_snapshot = self.txt.toPlainText()
+            self.history.append(self.pre_keypress_snapshot)
 
     def on_key_release(self, event):
+        is_trigger = False
         if hasattr(event, "text") and event.text() in ["/", "_"]:
+            is_trigger = True
+        elif hasattr(event, "key") and event.key() in [Qt.Key_Backspace, Qt.Key_Delete]:
+            is_trigger = True
+
+        if is_trigger:
             self.live_sync_word()
         self.refresh_highlights()
 
@@ -628,7 +643,7 @@ class StreamlinedLyricApp(QMainWindow):
         new_text, changed = calculate_live_sync(self.pre_keypress_snapshot, current_content, full_line, col)
         
         if changed:
-            self.history.append(self.pre_keypress_snapshot)
+            self.history.append(current_content)
             self.pre_keypress_snapshot = ""
 
             self.txt.setPlainText(new_text)

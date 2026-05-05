@@ -115,18 +115,34 @@ def calculate_live_sync(pre_keypress_snapshot, current_content, full_line, col):
     target = next(
         (
             m.group()
-            for m in re.finditer(r"\S+", full_line)
+            for m in re.finditer(r"[\w/_']+", full_line)
             if m.start() <= col <= m.end()
         ),
         None,
     )
-    if target and ("/" in target or "_" in target):
-        base = re.sub(r"[/_]", "", target)
-        pattern = re.compile(
-            rf"(?<!\w){''.join([re.escape(c) + r'[/_]*' for c in base])[:-5]}(?!\w)",
-            re.IGNORECASE,
-        )
-        if pattern.search(pre_keypress_snapshot):
+    if not target:
+        return current_content, False
+
+    base = re.sub(r"[/_]", "", target)
+    if not base:
+        return current_content, False
+
+    # Regex to match the word with any combination of slashes/underscores
+    pattern = re.compile(
+        rf"(?<!\w){''.join([re.escape(c) + r'[/_]*' for c in base])[:-5]}(?!\w)",
+        re.IGNORECASE,
+    )
+
+    # Find what this word was in the previous state
+    pre_match = pattern.search(pre_keypress_snapshot)
+    if pre_match:
+        old_target = pre_match.group()
+        # If the word changed but base letters are the same, and slashes are involved
+        if old_target != target and (
+            "/" in old_target or "_" in old_target or "/" in target or "_" in target
+        ):
             new_text = pattern.sub(target, current_content)
-            return new_text, True
+            if new_text != current_content:
+                return new_text, True
+
     return current_content, False
