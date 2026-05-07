@@ -16,12 +16,8 @@ def sanitize_lyrics_text(content):
 
     if first_bracket_idx > 0:
         header_text = "\n".join(lines[:first_bracket_idx]).lower()
-        # Verify it's a metadata block before deleting
-        if (
-            "contributor" in header_text
-            or "lyrics" in header_text
-            or "read more" in header_text
-        ):
+        # Verify it's a metadata block before deleting (e.g. contributor counts, etc.)
+        if any(word in header_text for word in ["contributor", "lyrics", "read more"]):
             lines = lines[first_bracket_idx:]
 
     # 2. Line-by-Line cleanup
@@ -32,45 +28,18 @@ def sanitize_lyrics_text(content):
     for line in lines:
         stripped = line.strip()
 
-        # Handle dynamic blurb skipping (e.g., descriptions before the lyrics)
-        if skipping_blurb:
-            if (
-                stripped.lower() == "read more"
-                or stripped.startswith("[")
-                or stripped == ""
-            ):
-                skipping_blurb = False
-                if stripped.lower() == "read more":
-                    continue
-            if skipping_blurb:
-                continue
-
-        if skip_count > 0:
-            skip_count -= 1
-            continue
-
-        # Triggers to start skipping lines
-        if re.match(r"^\d+\s*Contributors?$", stripped, re.IGNORECASE):
-            skipping_blurb = True
-            continue
-
-        if re.match(r"^See .* Live$", stripped, re.IGNORECASE):
-            skip_count = 8
-            continue
-
-        if "You might also like" in stripped:
-            skip_count = 6
-            continue
-
         if stripped.lower() == "read more":
             continue
 
         # Catch stray "Song Title Lyrics" right at the top
-        if stripped.lower().endswith("lyrics") and len(cleaned_lines) == 0:
-            continue
+        if len(cleaned_lines) == 0:
+            # Handle mashed "5 ContributorsSong Name LyricsLyric Start"
+            stripped = re.sub(r"^\d+\s*Contributors.*?Lyrics", "", stripped, flags=re.IGNORECASE).strip()
+            if stripped == "":
+                continue
 
         # Strip brackets and clean
-        line_no_tags = re.sub(r"\[.*?\]", "", line).strip()
+        line_no_tags = re.sub(r"\[.*?\]", "", stripped).strip()
 
         # Prevent multiple stacked blank lines
         if line_no_tags == "":

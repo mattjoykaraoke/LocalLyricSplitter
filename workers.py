@@ -54,17 +54,32 @@ class LyricFetchWorker(QThread):
             response = requests.get(url, headers=self.headers, timeout=10)
             data = response.json()
 
+            # Search all sections for the first 'song' hit to avoid landing on album or artist pages
+            song_url = None
             for section in data["response"]["sections"]:
-                if section["type"] == "top_hit" and section["hits"]:
-                    song_url = section["hits"][0]["result"]["url"]
-                    page = requests.get(song_url, headers=self.headers, timeout=10)
-                    soup = BeautifulSoup(page.text, "html.parser")
+                for hit in section["hits"]:
+                    if hit["type"] == "song":
+                        song_url = hit["result"]["url"]
+                        break
+                if song_url:
+                    break
 
-                    lyrics_divs = soup.select('div[class^="Lyrics__Container"]')
-                    if lyrics_divs:
-                        return "\n".join(
-                            [d.get_text(separator="\n") for d in lyrics_divs]
-                        )
+            if song_url:
+                page = requests.get(song_url, headers=self.headers, timeout=10)
+                soup = BeautifulSoup(page.text, "html.parser")
+
+                # Target the specific internal Genius containers
+                lyrics_divs = soup.find_all("div", attrs={"data-lyrics-container": "true"})
+                if lyrics_divs:
+                    all_lyrics = []
+                    for container in lyrics_divs:
+                        # Replace <br> with newlines to preserve lines correctly
+                        for br in container.find_all("br"):
+                            br.replace_with("\n")
+                        # Extract text without adding extra separators at every tag (e.g. <i>, <a>)
+                        all_lyrics.append(container.get_text())
+                    
+                    return "\n\n".join(all_lyrics).strip()
             return None
         except Exception:
             return None
