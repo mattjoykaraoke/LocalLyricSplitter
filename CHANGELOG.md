@@ -2,6 +2,11 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.3.3] - 2026-05-04
+
+### Fixed
+**Lyric Scraper and Sanitizer** The lyric scraper and sanitizer is improved.
+
 ## [2.3.2] - 2026-05-04
 
 ### Fixed
