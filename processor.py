@@ -7,6 +7,14 @@ def sanitize_lyrics_text(content):
 
     lines = content.splitlines()
 
+    # Un-mash first line if it contains a bracket
+    if lines and "[" in lines[0] and not lines[0].strip().startswith("["):
+        idx = lines[0].find("[")
+        mashed_text = lines[0][:idx]
+        if any(word in mashed_text.lower() for word in ["contributor", "lyrics"]):
+            lines.insert(1, lines[0][idx:])
+            lines[0] = mashed_text
+
     # 1. Pre-pass: If we find an early bracket (e.g., [Verse 1]), wipe out the top block completely.
     first_bracket_idx = -1
     for i, line in enumerate(lines):

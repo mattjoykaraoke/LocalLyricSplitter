@@ -767,6 +767,9 @@ if __name__ == "__main__":
         if os.path.exists(potential_file):
             args.edit = potential_file
 
+    if args.artist:
+        args.artist = re.sub(r"^\d+[\)\.]\s*", "", args.artist)
+
     app = QApplication(sys.argv)
     window = StreamlinedLyricApp(cli_args=args)
 
