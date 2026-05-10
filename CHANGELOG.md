@@ -2,15 +2,20 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.3.4] - 2026-05-10
+
+### Fixed
+**Lyric Scraper:** Addional issues fixed with Genius. 
+
 ## [2.3.3] - 2026-05-04
 
 ### Fixed
-**Lyric Scraper and Sanitizer** The lyric scraper and sanitizer is improved.
+**Lyric Scraper and Sanitizer:** The lyric scraper and sanitizer is improved.
 
 ## [2.3.2] - 2026-05-04
 
 ### Fixed
-**Core functionality** The manual lyric splitter broke somewhere along the way. Now it's fixed. 
+**Core functionality:** The manual lyric splitter broke somewhere along the way. Now it's fixed. 
 
 ## [2.3.1] - 2026-04-28
 
