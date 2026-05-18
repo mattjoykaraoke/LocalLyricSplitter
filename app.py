@@ -59,6 +59,7 @@ class StreamlinedLyricApp(QMainWindow):
         self.load_config()
 
         self.dic = None # Loaded asynchronously
+        self.dic_lang_name = None
         self.history = []
         self.pre_keypress_snapshot = ""
 
@@ -285,9 +286,7 @@ class StreamlinedLyricApp(QMainWindow):
         self.refresh_highlights()
 
         if getattr(self, "is_auto_processing", False):
-            self.auto_split()
-            self.do_export_auto_files()
-            self.is_auto_processing = False
+            self.continue_auto_process_when_ready()
 
     def on_fetch_error(self, message):
         self.fetch_btn.setEnabled(True)
@@ -442,7 +441,9 @@ class StreamlinedLyricApp(QMainWindow):
             """)
 
     def set_app_icon(self):
-        icon_path = os.path.join(self.app_path, "assets", "icon.ico")
+        icon_path = os.path.join(self.app_path, "assets", "LLS_Icon.ico")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(self.app_path, "assets", "icon.ico")
         if not os.path.exists(icon_path):
             icon_path = os.path.join(self.app_path, "assets", "about_logo.png")
 
@@ -459,15 +460,37 @@ class StreamlinedLyricApp(QMainWindow):
         if profile:
             self.current_lang_name = selected_name
             self.highlight_threshold = int(profile["threshold"])
+            self.dic = None
+            self.dic_lang_name = None
             
             # Load Pyphen async
             self.pyphen_worker = PyphenLoadWorker(profile["pyphen"])
-            self.pyphen_worker.success.connect(self.on_pyphen_loaded)
+            self.pyphen_worker.success.connect(
+                lambda dic, lang_name=selected_name: self.on_pyphen_loaded(dic, lang_name)
+            )
             self.pyphen_worker.start()
 
-    def on_pyphen_loaded(self, dic):
+    def on_pyphen_loaded(self, dic, lang_name):
+        if lang_name != self.current_lang_name:
+            return
+
         self.dic = dic
+        self.dic_lang_name = lang_name
         self.refresh_highlights()
+        self.continue_auto_process_when_ready()
+
+    def continue_auto_process_when_ready(self):
+        if not getattr(self, "is_auto_processing", False):
+            return
+
+        if not self.dic:
+            self.source_label.setText("Loading dictionary...")
+            QTimer.singleShot(100, self.continue_auto_process_when_ready)
+            return
+
+        self.is_auto_processing = False
+        self.auto_split()
+        self.do_export_auto_files()
 
     def load_config(self):
         if os.path.exists(self.config_path):

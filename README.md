@@ -28,10 +28,10 @@ ________________________________________________________________________________
 * 🧠 **Smart Highlighting:** The app automatically highlights words that likely need splitting (≥5 letters) or known "Trip-Up" words, ensuring you never miss a syllable.
 * 🛠 **Dynamic Learning:** Right-click any word to instantly add it to your "Ignore" list or "Trip-Up" database. The app gets smarter the more you use it.
 * 🧹 **Sanitizer Logic Summary:**
-  - **Ad and Tag Removal:** Specific repetitive phrases like "See...Live" (9 lines) and "You might also like" (7 lines) patterns from Genius are removed entirely when you click `Sanitize`. `[Verse]`, `[Chorus]`, etc. are also removed.
+  - **Source-Aware Cleanup:** The lyric fetchers target the actual lyric containers/API fields first, so most Genius page chrome and recommendation text is avoided before it reaches the editor. `Sanitize` then removes common metadata, `Read More`, and `[Verse]`, `[Chorus]`, etc.
   - **Spacing Protection:** `Sanitize` leaves exactly one blank line between stanzas, even if the source text had messy double-spacing or no spacing at all (if there were `[Tags]`).
   - **History Preservation:** The `Undo` button acts as a safety net if a "Sanitize" goes wrong.
-* 📖 **Lyrics Fetching:** Lyrics can be automatically pulled from Genius, AZLyrics, or Google Search. When lyrics are pulled, the sanitizer runs automatically, as well. This is intentional for future automated workflows.
+* 📖 **Lyrics Fetching:** Lyrics can be automatically pulled from Genius, AZLyrics, or LRCLIB. When lyrics are pulled, the sanitizer runs automatically, as well. This is intentional for future automated workflows.
 * 📂 **Load and Save .txt files:** You can save your work or load up a lyrics `.txt` file from the file menu. You can also drag and drop anywhere in the app.
 * 📂 **Organized JSON Database:** Your custom split rules are saved to a `config.json` that is automatically alphabetized and cleaned every time the app starts. The program comes with some default words in the database, as well.
 * 📂 **JSON Database Sharing:** You can export or merge the `.json` file to share or combine dictionaries with anyone. It doesn't overwrite your original dictionary. NOTE: You can always download the latest `.json` from the repository which will be a combination of mine and Rose's dictionary, but it will be packaged in every subsequent version to the date posted. Feel free to update the app and merge with the root `config.json` file.

@@ -1,4 +1,38 @@
 import re
+import unicodedata
+
+WORD_JOINERS = {"'", "’", "‘", "/", "_", "-"}
+
+
+def is_lyric_token_char(char):
+    return (
+        char.isalnum()
+        or unicodedata.category(char).startswith("M")
+        or char in WORD_JOINERS
+    )
+
+
+def split_lyric_tokens(content):
+    if not content:
+        return [""]
+
+    parts = []
+    current = []
+    current_is_token = None
+
+    for char in content:
+        is_token = is_lyric_token_char(char)
+        if current and is_token != current_is_token:
+            parts.append("".join(current))
+            current = []
+
+        current.append(char)
+        current_is_token = is_token
+
+    if current:
+        parts.append("".join(current))
+
+    return parts
 
 def sanitize_lyrics_text(content):
     """Removes Genius metadata, ads, and structural tags while preserving stanza spacing."""
@@ -59,7 +93,7 @@ def sanitize_lyrics_text(content):
     return "\n".join(cleaned_lines).strip()
 
 def auto_split_text(content, pyphen_dic, trip_ups):
-    parts = re.split(r"([^a-zA-Z0-9'/_-]+)", content)
+    parts = split_lyric_tokens(content)
     processed = []
     for p in parts:
         low = p.lower()

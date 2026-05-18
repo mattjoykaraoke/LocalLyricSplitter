@@ -2,6 +2,16 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.3.5] - 2026-05-18
+
+### Fixed
+**Non-English Splitting:** Auto-Split now handles accented and non-Latin words more reliably without breaking existing split markers.
+**Auto-Process Export:** Auto-Process now waits for the selected dictionary to load before exporting files.
+**App Icon:** The application now points to the correct `.ico` asset.
+
+### Changed
+**Documentation:** Updated the README to match the current lyric-fetching and cleanup logic.
+
 ## [2.3.4] - 2026-05-10
 
 ### Fixed
