@@ -49,7 +49,7 @@ class LyricFetchWorker(QThread):
 
     def fetch_genius(self):
         try:
-            query = f"{self.artist} {self.title}".replace(" ", "%20")
+            query = urllib.parse.quote(f"{self.artist} {self.title}")
             url = f"https://genius.com/api/search/multi?q={query}"
             response = requests.get(url, headers=self.headers, timeout=10)
             data = response.json()

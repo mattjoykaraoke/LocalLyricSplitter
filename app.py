@@ -494,7 +494,7 @@ class StreamlinedLyricApp(QMainWindow):
 
     def load_config(self):
         if os.path.exists(self.config_path):
-            with open(self.config_path, "r") as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 try:
                     config = json.load(f)
 
@@ -517,7 +517,7 @@ class StreamlinedLyricApp(QMainWindow):
             "trip_up_words": dict(sorted(self.trip_ups.items())),
             "false_positives": sorted(list(self.false_positives)),
         }
-        with open(self.config_path, "w") as f:
+        with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
 
     def export_to_txt(self):
@@ -753,6 +753,23 @@ class StreamlinedLyricApp(QMainWindow):
             self.txt.setPlainText(self.history.pop())
             self.txt.verticalScrollBar().setValue(scroll)
             self.refresh_highlights()
+
+    def closeEvent(self, event):
+        # Wait for lyric fetch worker
+        if hasattr(self, "worker") and self.worker.isRunning():
+            self.worker.quit()
+            self.worker.wait()
+        # Wait for pyphen worker
+        if hasattr(self, "pyphen_worker") and self.pyphen_worker.isRunning():
+            self.pyphen_worker.quit()
+            self.pyphen_worker.wait()
+        # Wait for icon workers
+        if hasattr(self, "icon_workers"):
+            for worker in self.icon_workers:
+                if worker.isRunning():
+                    worker.quit()
+                    worker.wait()
+        event.accept()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local Lyric Splitter Engine")

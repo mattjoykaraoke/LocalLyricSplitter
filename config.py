@@ -4,7 +4,7 @@ import shutil
 import sys
 from pathlib import Path
 
-APP_VERSION = "2.3.5"
+APP_VERSION = "2.3.6"
 
 def get_config_path():
     """
@@ -34,7 +34,7 @@ def get_config_path():
                 pass
 
         default_config = {"trip_up_words": {"into": "in/to"}, "false_positives": []}
-        with open(config_file, "w") as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(default_config, f, indent=4)
 
     return str(config_file)
