@@ -2,7 +2,10 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
-## [2.3.5] - 2026-05-18
+## [2.3.5] - 2026-05-22
+
+### Fixed
+**Improved Genius Lyric Fetching:** Fixed some errors noted on some lyrics fetched from Genius.
 
 ### Fixed
 **Non-English Splitting:** Auto-Split now handles accented and non-Latin words more reliably without breaking existing split markers.
