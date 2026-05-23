@@ -73,6 +73,10 @@ class LyricFetchWorker(QThread):
                 if lyrics_divs:
                     all_lyrics = []
                     for container in lyrics_divs:
+                        # Remove elements that are marked to be excluded from selection (headers, ads, etc.)
+                        for exclude in container.find_all(attrs={"data-exclude-from-selection": True}):
+                            exclude.decompose()
+
                         # Replace <br> with newlines to preserve lines correctly
                         for br in container.find_all("br"):
                             br.replace_with("\n")

@@ -76,7 +76,7 @@ def sanitize_lyrics_text(content):
         # Catch stray "Song Title Lyrics" right at the top
         if len(cleaned_lines) == 0:
             # Handle mashed "5 ContributorsSong Name LyricsLyric Start"
-            stripped = re.sub(r"^\d+\s*Contributors.*?Lyrics", "", stripped, flags=re.IGNORECASE).strip()
+            stripped = re.sub(r"^\d+\s*Contributors?.*?Lyrics", "", stripped, flags=re.IGNORECASE).strip()
             if stripped == "":
                 continue
 
