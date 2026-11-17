@@ -71,6 +71,7 @@ class StreamlinedLyricApp(QMainWindow):
             self.cli_args.auto = True
 
         self.is_auto_processing = False
+        self.exit_code = 0
         self.audio_path = self.cli_args.audio
         self.out_dir = self.cli_args.out
 
@@ -264,7 +265,8 @@ class StreamlinedLyricApp(QMainWindow):
                     self, "Input Required", "Please enter both Artist and Song Title."
                 )
             elif self.cli_args.auto:
-                QApplication.quit()
+                self.exit_code = 1
+                QApplication.exit(1)
             return
 
         self.source_label.setText("")
@@ -295,9 +297,12 @@ class StreamlinedLyricApp(QMainWindow):
         self.is_auto_processing = False
         if not self.cli_args.silent:
             QMessageBox.warning(self, "Not Found", message)
+        else:
+            print(f"Error: {message}", file=sys.stderr)
 
         if self.cli_args.auto:
-            QApplication.quit()
+            self.exit_code = 1
+            QApplication.exit(1)
 
     def start_auto_process(self):
         artist = self.artist_input.text()
@@ -308,13 +313,15 @@ class StreamlinedLyricApp(QMainWindow):
                     self, "Input Required", "Please enter both Artist and Song Title."
                 )
             if self.cli_args.auto:
-                QApplication.quit()
+                self.exit_code = 1
+                QApplication.exit(1)
             return
 
         if not self.audio_path:
             if self.cli_args.silent:
                 if self.cli_args.auto:
-                    QApplication.quit()
+                    self.exit_code = 1
+                    QApplication.exit(1)
                 return
             audio_file, _ = QFileDialog.getOpenFileName(
                 self,
@@ -329,7 +336,8 @@ class StreamlinedLyricApp(QMainWindow):
         if not self.out_dir:
             if self.cli_args.silent:
                 if self.cli_args.auto:
-                    QApplication.quit()
+                    self.exit_code = 1
+                    QApplication.exit(1)
                 return
             out_directory = QFileDialog.getExistingDirectory(
                 self, "Select Save Location"
@@ -360,8 +368,11 @@ class StreamlinedLyricApp(QMainWindow):
                 QMessageBox.critical(
                     self, "Export Failed", f"Failed to save files: {e}"
                 )
+            else:
+                print(f"Export Failed: {e}", file=sys.stderr)
             if self.cli_args.auto:
-                QApplication.quit()
+                self.exit_code = 1
+                QApplication.exit(1)
 
     def manual_export_kbp(self):
         content = self.txt.toPlainText()
@@ -816,4 +827,5 @@ if __name__ == "__main__":
     if not args.silent:
         window.show()
 
-    sys.exit(app.exec())
+    rc = app.exec()
+    sys.exit(rc if rc != 0 else getattr(window, "exit_code", 0))

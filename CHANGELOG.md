@@ -2,6 +2,16 @@
 
 All notable changes to Local Lyric Splitter will be documented in this file.
 
+## [2.3.7] - 2026-11-17
+
+### Fixed
+**Silent/Auto CLI Exit Codes:** When running with `--silent` or `--auto`, failures such as missing arguments, failed lyric fetches, or export errors now print to stderr and exit with a non-zero status code (`1`) instead of silently exiting with `0`.
+
+## [2.3.6] - 2026-05-22
+
+### Fixed
+**Improved Genius Lyric Fetching:** Fixed some additional errors noted on some lyrics fetched from Genius.
+
 ## [2.3.5] - 2026-05-22
 
 ### Fixed
